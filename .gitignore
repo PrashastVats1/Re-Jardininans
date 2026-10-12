@@ -1,0 +1,14 @@
+# Godot 4+
+.godot/
+/android/
+
+# Build / export output
+/build/
+/exports/
+*.tmp
+
+# OS / editor clutter
+.DS_Store
+Thumbs.db
+*~
+*.swp
