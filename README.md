@@ -13,6 +13,38 @@ the classic *Jardinains!*. Built for personal and family play, not for sale.
 1. Open Godot 4.7.2 and import this folder (`project.godot`).
 2. Press **F5** to run the main scene (`res://main.tscn`).
 
+## Controls
+
+| Action | Keys |
+|---|---|
+| Move paddle | Left/Right arrows, A/D, or move the mouse |
+| Launch ball / play again | Space or left click |
+| Pause / resume | P or Esc |
+
+## Tests
+
+Plugin-free tests live in `tests/`. Run them from the project folder, replacing
+`godot` with the path to your Godot 4.7.2 executable if it is not on `PATH`
+(e.g. `~/Downloads/Godot_v4.7.2-stable_linux.x86_64`):
+
+```bash
+godot --headless --path . --fixed-fps 60 --script res://tests/run_tests.gd
+```
+
+`--fixed-fps 60` makes each frame exactly one physics step, so the physics
+simulations run quickly and deterministically. The command exits with code 0
+when every check passes.
+
+The headless run skips the rendered-pixel brick check. To include it, run in a
+window (a game window opens briefly):
+
+```bash
+godot --path . --fixed-fps 60 --disable-vsync --script res://tests/run_tests.gd
+```
+
+If you add or rename scripts, run `godot --headless --path . --import` once (or
+open the editor) so new `class_name` types are registered before testing.
+
 ## Project settings at a glance
 
 - Renderer: GL Compatibility
@@ -37,7 +69,7 @@ res://
 ├── entities/          # one folder per game object: scene + script + art
 ├── gameplay/          # game session, level loading, resource class definitions
 ├── ui/                # screens, HUD, pause menu, theme
-├── tests/             # automated tests for pure gameplay logic
+├── tests/             # plugin-free automated tests (logic, physics, scenes)
 └── docs/              # project documentation
 ```
 
