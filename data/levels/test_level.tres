@@ -1,0 +1,45 @@
+[gd_resource type="Resource" script_class="LevelData" format=3 uid="uid://mkh0qqwok8sb"]
+
+[ext_resource type="Script" uid="uid://bdiuqpu7f0bwf" path="res://gameplay/resources/level_data.gd" id="1_level"]
+[ext_resource type="Script" uid="uid://c73s4on58ph1j" path="res://gameplay/resources/brick_type.gd" id="2_brick"]
+
+[sub_resource type="Resource" id="Resource_blue"]
+script = ExtResource("2_brick")
+display_name = "Blue bloom"
+color = Color(0.36, 0.6, 0.95, 1)
+
+[sub_resource type="Resource" id="Resource_pot"]
+script = ExtResource("2_brick")
+display_name = "Clay pot"
+color = Color(0.82, 0.45, 0.27, 1)
+hit_points = 2
+points = 120
+
+[sub_resource type="Resource" id="Resource_red"]
+script = ExtResource("2_brick")
+display_name = "Red bloom"
+color = Color(0.93, 0.33, 0.4, 1)
+
+[sub_resource type="Resource" id="Resource_stone"]
+script = ExtResource("2_brick")
+display_name = "Garden stone"
+color = Color(0.56, 0.58, 0.6, 1)
+points = 0
+destructible = false
+
+[sub_resource type="Resource" id="Resource_yellow"]
+script = ExtResource("2_brick")
+display_name = "Yellow bloom"
+color = Color(0.98, 0.78, 0.25, 1)
+
+[resource]
+script = ExtResource("1_level")
+display_name = "Test Garden"
+rows = PackedStringArray("..PPPPPPPPPP..", "RRRRRRRRRRRRRR", "YYYYYYYYYYYYYY", "BBBBBBBBBBBBBB", "...S......S...")
+legend = {
+"B": SubResource("Resource_blue"),
+"P": SubResource("Resource_pot"),
+"R": SubResource("Resource_red"),
+"S": SubResource("Resource_stone"),
+"Y": SubResource("Resource_yellow")
+}
