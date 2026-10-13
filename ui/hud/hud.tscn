@@ -35,10 +35,13 @@ text = "Score: 0"
 vertical_alignment = 1
 
 [node name="ControlsLabel" type="Label" parent="."]
-offset_left = 404.0
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -236.0
 offset_top = 10.0
-offset_right = 876.0
+offset_right = 236.0
 offset_bottom = 54.0
+grow_horizontal = 2
 theme_override_colors/font_color = Color(0.92, 0.97, 0.82, 1)
 theme_override_colors/font_outline_color = Color(0.08, 0.16, 0.06, 1)
 theme_override_constants/outline_size = 4
@@ -49,10 +52,13 @@ vertical_alignment = 1
 
 [node name="LivesLabel" type="Label" parent="."]
 unique_name_in_owner = true
-offset_left = 876.0
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -404.0
 offset_top = 10.0
-offset_right = 1256.0
+offset_right = -24.0
 offset_bottom = 54.0
+grow_horizontal = 0
 theme_override_colors/font_color = Color(1, 0.97, 0.86, 1)
 theme_override_colors/font_outline_color = Color(0.08, 0.16, 0.06, 1)
 theme_override_constants/outline_size = 6

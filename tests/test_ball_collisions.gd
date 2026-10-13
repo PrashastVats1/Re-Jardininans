@@ -3,7 +3,7 @@ extends "res://tests/test_case.gd"
 
 const BALL_SCENE: PackedScene = preload("res://entities/ball/ball.tscn")
 const BRICK_SCENE: PackedScene = preload("res://entities/brick/brick.tscn")
-const ARENA: Rect2 = Rect2(0.0, 0.0, 1280.0, 720.0)
+var _arena: Rect2 = Playfield.get_rect()
 
 
 func run() -> void:
@@ -16,12 +16,12 @@ func run() -> void:
 func _test_ball_stays_in_closed_arena(speed: float) -> void:
 	var arena := _make_arena()
 	var ball := BALL_SCENE.instantiate() as Ball
-	ball.lost_below_y = INF
-	ball.position = ARENA.get_center()
+	ball.position = _arena.get_center()
 	arena.add_child(ball)
+	ball.lost_below_y = INF
 	ball.start_moving(Vector2(0.37, -0.93), speed)
 
-	var inner := ARENA.grow(-ball.radius).grow(1.0)
+	var inner := _arena.grow(-ball.radius).grow(1.0)
 	var escaped_at := -1
 	var bad_angle := false
 	for frame: int in 600:
@@ -43,16 +43,16 @@ func _test_fast_ball_hits_brick_instead_of_tunneling(speed: float) -> void:
 	var brick_type := BrickType.new()
 	var brick := BRICK_SCENE.instantiate() as Brick
 	brick.setup(brick_type)
-	brick.position = Vector2(640.0, 200.0)
+	brick.position = Vector2(_arena.get_center().x, 200.0)
 	arena.add_child(brick)
 	var destroyed_count := [0]
 	brick.destroyed.connect(func(_brick: Brick) -> void: destroyed_count[0] += 1)
 
 	var ball := BALL_SCENE.instantiate() as Ball
-	ball.lost_below_y = INF
 	ball.max_speed = speed
-	ball.position = Vector2(640.0, 600.0)
+	ball.position = Vector2(_arena.get_center().x, 600.0)
 	arena.add_child(ball)
+	ball.lost_below_y = INF
 	ball.start_moving(Vector2(0.1, -1.0), speed)
 
 	var bounced_back := false
@@ -74,10 +74,10 @@ func _make_arena() -> Node2D:
 	walls.collision_mask = 0
 	var thickness := 200.0
 	for rect: Rect2 in [
-			Rect2(ARENA.position.x - thickness, -thickness, thickness, ARENA.size.y + thickness * 2.0),
-			Rect2(ARENA.end.x, -thickness, thickness, ARENA.size.y + thickness * 2.0),
-			Rect2(-thickness, ARENA.position.y - thickness, ARENA.size.x + thickness * 2.0, thickness),
-			Rect2(-thickness, ARENA.end.y, ARENA.size.x + thickness * 2.0, thickness)]:
+			Rect2(_arena.position.x - thickness, -thickness, thickness, _arena.size.y + thickness * 2.0),
+			Rect2(_arena.end.x, -thickness, thickness, _arena.size.y + thickness * 2.0),
+			Rect2(-thickness, _arena.position.y - thickness, _arena.size.x + thickness * 2.0, thickness),
+			Rect2(-thickness, _arena.end.y, _arena.size.x + thickness * 2.0, thickness)]:
 		var shape := RectangleShape2D.new()
 		shape.size = rect.size
 		var collision := CollisionShape2D.new()

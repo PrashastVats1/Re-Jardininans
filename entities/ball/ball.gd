@@ -17,12 +17,15 @@ const MAX_COLLISIONS_PER_STEP: int = 4
 @export_range(0.0, 85.0) var paddle_max_bounce_angle_deg: float = 60.0
 ## Paddle hit offset used for the launch direction (0 = straight up).
 @export_range(0.0, 1.0) var launch_offset: float = 0.25
-@export var lost_below_y: float = 760.0
+## How far below the playfield's bottom edge the ball must fall to count as lost.
+@export var lost_margin: float = 40.0
 @export var fill_color: Color = Color(1.0, 0.84, 0.25)
 @export var outline_color: Color = Color(0.7, 0.4, 0.12)
 
 var direction: Vector2 = Vector2.UP
 var speed: float = 0.0
+## Set from the playfield height in _ready().
+var lost_below_y: float = 0.0
 
 var _attached: bool = false
 var _active: bool = false
@@ -32,6 +35,7 @@ var _active: bool = false
 
 func _ready() -> void:
 	(_collision_shape.shape as CircleShape2D).radius = radius
+	lost_below_y = Playfield.get_size().y + lost_margin
 	queue_redraw()
 
 

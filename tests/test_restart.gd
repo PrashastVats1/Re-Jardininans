@@ -91,7 +91,7 @@ func _restart_with(restart_event: InputEvent, game: Game, label: String) -> void
 	check_equal(new_game.session.bricks_remaining, 52, "[%s] 52 destructible bricks again" % label)
 	check_equal(new_game.get_node("Playfield/Bricks").get_child_count(), 54, "[%s] full brick layout respawned" % label)
 	check((new_game.get_node("Playfield/Ball") as Ball).is_attached(), "[%s] ball reset onto the paddle" % label)
-	check_approx((new_game.get_node("Playfield/Paddle") as Node2D).position.x, 640.0, "[%s] paddle reset to center" % label)
+	check_approx((new_game.get_node("Playfield/Paddle") as Node2D).position.x, Playfield.get_size().x * 0.5, "[%s] paddle reset to center" % label)
 	check(not tree.paused, "[%s] tree is not paused after restart" % label)
 
 
@@ -113,7 +113,8 @@ func _play_until_game_over(game: Game) -> void:
 		if game.session.state == GameSession.State.READY:
 			_send(_space_key())
 		elif not ball.is_attached():
-			paddle.position.x = paddle.get_half_width() if ball.position.x > 640.0 else 1280.0 - paddle.get_half_width()
+			var width := Playfield.get_size().x
+			paddle.position.x = paddle.get_half_width() if ball.position.x > width * 0.5 else width - paddle.get_half_width()
 		await tree.physics_frame
 		steps += 1
 
@@ -140,6 +141,6 @@ func _left_click() -> InputEventMouseButton:
 	var event := InputEventMouseButton.new()
 	event.button_index = MOUSE_BUTTON_LEFT
 	event.pressed = true
-	event.position = Vector2(640.0, 400.0)
+	event.position = Playfield.get_size() * Vector2(0.5, 0.55)
 	event.global_position = event.position
 	return event

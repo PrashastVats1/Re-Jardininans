@@ -11,8 +11,9 @@ const RESTART_DELAY_MSEC: int = 600
 
 @export var level: LevelData
 @export_range(1, 9) var starting_lives: int = 3
-@export var playfield_width: float = 1280.0
 @export var brick_area_top: float = 104.0
+## Distance from the playfield's bottom edge to the paddle's center.
+@export var paddle_bottom_offset: float = 60.0
 @export var brick_spacing: Vector2 = Vector2(4.0, 4.0)
 @export var pause_on_focus_loss: bool = true
 
@@ -22,6 +23,7 @@ var _ended_at_msec: int = 0
 var _restarting: bool = false
 
 @onready var _bricks: Node2D = %Bricks
+@onready var _paddle: Paddle = %Paddle
 @onready var _ball: Ball = %Ball
 @onready var _hud: Hud = %Hud
 
@@ -34,6 +36,9 @@ func _ready() -> void:
 
 	_hud.set_score(session.score)
 	_hud.set_lives(session.lives)
+	var playfield_size := Playfield.get_size()
+	_paddle.position = Vector2(playfield_size.x * 0.5, playfield_size.y - paddle_bottom_offset)
+	_paddle.reset_physics_interpolation()
 	_ball.attach_to_paddle()
 	_hud.show_message("Re-Jardinians!", "Clear every flower brick.\nPress Space or click to launch.")
 
@@ -65,7 +70,7 @@ func _build_level() -> int:
 
 	var cell := Brick.SIZE + brick_spacing
 	var columns := level.get_column_count()
-	var first_center := Vector2((playfield_width - columns * cell.x) * 0.5, brick_area_top) + cell * 0.5
+	var first_center := Vector2((Playfield.get_size().x - columns * cell.x) * 0.5, brick_area_top) + cell * 0.5
 	var destructible := 0
 	for row: int in level.rows.size():
 		var line := level.rows[row]
