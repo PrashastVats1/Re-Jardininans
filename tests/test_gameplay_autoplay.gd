@@ -1,16 +1,20 @@
 extends "res://tests/test_case.gd"
 ## End-to-end runs of the real main scene, driven through the input actions.
-## A scripted paddle plays to victory; a missing paddle plays to game over.
+## A scripted paddle plays every level under data/levels to victory; a missing
+## paddle plays to game over.
 
+const LevelFacts := preload("res://tests/level_facts.gd")
 const MAIN_SCENE: PackedScene = preload("res://main.tscn")
 const MAX_STEPS_TO_WIN: int = 60 * 60 * 5
-## 7 clay pots at 120 points plus 33 blooms at 50 points.
-const EXPECTED_FULL_SCORE: int = 7 * 120 + 33 * 50
 
 
 func run() -> void:
 	await _test_pause_freezes_play()
-	await _test_autoplay_reaches_victory()
+	for path: String in LevelFacts.level_paths():
+		var level := load(path) as LevelData
+		check(level != null, "%s loads as LevelData" % path.get_file())
+		if level != null:
+			await _test_autoplay_reaches_victory(level, path.get_file())
 	await _test_losing_all_lives_ends_game()
 
 
@@ -39,8 +43,9 @@ func _test_pause_freezes_play() -> void:
 	await _end_game(game)
 
 
-func _test_autoplay_reaches_victory() -> void:
-	var game := await _start_game()
+func _test_autoplay_reaches_victory(level: LevelData, label: String) -> void:
+	var expected_score := LevelFacts.full_clear_score(level)
+	var game := await _start_game(level)
 	var ball := _ball(game)
 	var paddle := game.get_node("Playfield/Paddle") as Paddle
 	_press("launch_ball")
@@ -54,21 +59,23 @@ func _test_autoplay_reaches_victory() -> void:
 			_press("launch_ball")
 		await tree.physics_frame
 		steps += 1
-	check(not unexpectedly_paused, "game was never paused during autoplay")
-	check_equal(game.session.state, GameSession.State.WON, "scripted paddle clears the level within %d steps (bricks left: %d)" % [MAX_STEPS_TO_WIN, game.session.bricks_remaining])
-	check_equal(game.session.score, EXPECTED_FULL_SCORE, "full clear scores every brick exactly once")
-	check(ball.speed <= ball.max_speed + 0.001, "ball speed never exceeds max_speed")
+	check(game.level == level, "[%s] the game plays the requested level" % label)
+	check(not unexpectedly_paused, "[%s] game was never paused during autoplay" % label)
+	check_equal(game.session.state, GameSession.State.WON, "[%s] scripted paddle clears the level within %d steps (bricks left: %d)"
+			% [label, MAX_STEPS_TO_WIN, game.session.bricks_remaining])
+	check_equal(game.session.score, expected_score, "[%s] full clear scores every destructible brick exactly once" % label)
+	check(ball.speed <= ball.max_speed + 0.001, "[%s] ball speed never exceeds max_speed" % label)
 
 	var score_at_win := game.session.score
 	for i: int in 30:
 		await tree.physics_frame
 	_press("pause")
 	await tree.physics_frame
-	check(not tree.paused, "pause is ignored after victory")
-	check_equal(game.session.score, score_at_win, "score is frozen after victory")
-	check_equal(game.session.state, GameSession.State.WON, "state stays WON")
-	check_equal(_sidebar_text(game, "%ScoreValue"), str(EXPECTED_FULL_SCORE), "sidebar shows the final score after victory")
-	check_equal(_sidebar_text(game, "%LivesValue"), str(game.session.lives), "sidebar shows the remaining lives after victory")
+	check(not tree.paused, "[%s] pause is ignored after victory" % label)
+	check_equal(game.session.score, score_at_win, "[%s] score is frozen after victory" % label)
+	check_equal(game.session.state, GameSession.State.WON, "[%s] state stays WON" % label)
+	check_equal(_sidebar_text(game, "%ScoreValue"), str(expected_score), "[%s] sidebar shows the final score after victory" % label)
+	check_equal(_sidebar_text(game, "%LivesValue"), str(game.session.lives), "[%s] sidebar shows the remaining lives after victory" % label)
 	await _end_game(game)
 
 
@@ -88,8 +95,10 @@ func _test_losing_all_lives_ends_game() -> void:
 			paddle.position.x = far_side
 		await tree.physics_frame
 		steps += 1
+	var expected_lives: Array[int] = []
+	expected_lives.assign(range(game.starting_lives - 1, -1, -1))
 	check_equal(game.session.state, GameSession.State.GAME_OVER, "missing every ball ends the game")
-	check_equal(lives_seen, [2, 1, 0] as Array[int], "lives count down 3 -> 0 exactly once each")
+	check_equal(lives_seen, expected_lives, "lives count down %d -> 0 exactly once each" % game.starting_lives)
 	var score_at_end := game.session.score
 	_press("launch_ball")
 	for i: int in 60:
@@ -101,8 +110,10 @@ func _test_losing_all_lives_ends_game() -> void:
 	await _end_game(game)
 
 
-func _start_game() -> Game:
+## Plays [param level], or the scene's default level when it is null.
+func _start_game(level: LevelData = null) -> Game:
 	var main := MAIN_SCENE.instantiate()
+	(main.get_node("Game") as Game).level = level
 	tree.root.add_child(main)
 	# The tests position the paddle directly and control pausing themselves; stop
 	# the real mouse, keyboard or window focus from interfering in a windowed run.

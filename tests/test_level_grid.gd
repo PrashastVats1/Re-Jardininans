@@ -3,6 +3,7 @@ extends "res://tests/test_case.gd"
 ## right at and around their boundaries, and the running game places the Test
 ## Garden bricks and the paddle exactly where the grid says.
 
+const LevelFacts := preload("res://tests/level_facts.gd")
 const MAIN_SCENE: PackedScene = preload("res://main.tscn")
 const BRICK_SCENE: PackedScene = preload("res://entities/brick/brick.tscn")
 const ARENA: Vector2 = Vector2(960.0, 720.0)
@@ -19,6 +20,12 @@ func run() -> void:
 	_test_tiny_arenas()
 	_test_cell_centers()
 	await _test_game_uses_the_grid()
+	for path: String in LevelFacts.level_paths():
+		var level := load(path) as LevelData
+		var problems := LevelValidator.validate(level)
+		check_equal(problems, PackedStringArray(), "%s loads as a valid LevelData" % path.get_file())
+		if problems.is_empty():
+			await _test_level_sits_on_the_grid(level, path.get_file())
 
 
 func _test_constants_match_scenes() -> void:
@@ -110,6 +117,7 @@ func _test_game_uses_the_grid() -> void:
 	await tree.physics_frame
 	var game := main.get_node("Game") as Game
 	var level := game.level
+	check_equal(level.resource_path, "res://data/levels/test_level.tres", "the pinned positions below are Test Garden's")
 	var columns := level.get_column_count()
 	var expected: Array[Vector2] = []
 	for row: int in level.rows.size():
@@ -126,5 +134,28 @@ func _test_game_uses_the_grid() -> void:
 	var paddle := game.get_node("Playfield/Paddle") as Paddle
 	check_equal(paddle.position, Vector2(480.0, 660.0), "paddle starts at (480, 660)")
 	check_equal(paddle.size, Paddle.DEFAULT_SIZE, "game's paddle uses the default size the grid assumes")
+	main.queue_free()
+	await tree.process_frame
+
+
+## Any level, whatever its width: each brick is spawned at the centre of its
+## cell in a grid centred in the arena with its top edge at GRID_TOP (the
+## formula is written out here rather than taken from LevelGrid).
+func _test_level_sits_on_the_grid(level: LevelData, label: String) -> void:
+	var main := MAIN_SCENE.instantiate()
+	(main.get_node("Game") as Game).level = level
+	tree.root.add_child(main)
+	await tree.physics_frame
+	var columns := level.get_column_count()
+	var left := (ARENA.x - columns * LevelGrid.CELL_SIZE.x) * 0.5
+	var expected: Array[Vector2] = []
+	for row: int in level.rows.size():
+		for column: int in columns:
+			if level.get_brick_type(level.rows[row][column]) != null:
+				expected.append(Vector2(left, LevelGrid.GRID_TOP) + LevelGrid.CELL_SIZE * Vector2(column + 0.5, row + 0.5))
+	var actual: Array[Vector2] = []
+	for child: Node in main.get_node("Game/Playfield/Bricks").get_children():
+		actual.append((child as Node2D).position)
+	check_equal(actual, expected, "[%s] %d columns: every brick sits at its centred grid cell, in row order" % [label, columns])
 	main.queue_free()
 	await tree.process_frame

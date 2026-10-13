@@ -1,24 +1,27 @@
 extends "res://tests/test_case.gd"
-## Regression tests for the "no bricks visible" bug: the level must keep its
-## rows on disk, spawn the expected bricks inside the playfield, and (when a
-## window is available) actually render them.
+## Regression tests for the "no bricks visible" bug, for every level under
+## data/levels: each must keep its rows on disk, spawn exactly the bricks its
+## data describes inside the playfield, and (when a window is available)
+## actually render them. Also checks each level fits and is reachable in the
+## running game.
 
+const LevelFacts := preload("res://tests/level_facts.gd")
 const MAIN_SCENE: PackedScene = preload("res://main.tscn")
-const TEST_LEVEL_PATH: String = "res://data/levels/test_level.tres"
-const EXPECTED_COUNTS: Dictionary = {
-	"Clay pot": 7,
-	"Red bloom": 11,
-	"Yellow bloom": 11,
-	"Blue bloom": 11,
-	"Garden stone": 2,
-}
 
 
 func run() -> void:
 	_test_no_untyped_literal_defaults_on_typed_array_exports()
-	_test_level_file_keeps_rows()
-	await _test_spawned_bricks()
-	await _test_level_fits_arena_and_is_reachable()
+	var paths := LevelFacts.level_paths()
+	check(paths.size() >= 2, "Test Garden and at least one fixture are checked (%s)" % [paths])
+	for path: String in paths:
+		var label := path.get_file()
+		_test_level_file_keeps_rows(path, label)
+		var level := load(path) as LevelData
+		check(level != null, "%s loads as LevelData" % label)
+		if level == null:
+			continue
+		await _test_spawned_bricks(level, label)
+		await _test_level_fits_arena_and_is_reachable(level, label)
 
 
 ## The editor builds non-tool resources from export defaults; a bare [] default
@@ -34,16 +37,13 @@ func _test_no_untyped_literal_defaults_on_typed_array_exports() -> void:
 	check(offenders.is_empty(), "typed array exports use typed initializers, found: %s" % [offenders])
 
 
-func _test_level_file_keeps_rows() -> void:
-	var text := FileAccess.get_file_as_string(TEST_LEVEL_PATH)
-	check(text.contains("rows = PackedStringArray(\""), "test_level.tres stores its brick rows on disk")
+func _test_level_file_keeps_rows(path: String, label: String) -> void:
+	var text := FileAccess.get_file_as_string(path)
+	check(text.contains("rows = PackedStringArray(\""), "%s stores its brick rows on disk" % label)
 
 
-func _test_spawned_bricks() -> void:
-	var main := MAIN_SCENE.instantiate()
-	tree.root.add_child(main)
-	await tree.physics_frame
-	var game := main.get_node("Game") as Game
+func _test_spawned_bricks(level: LevelData, label: String) -> void:
+	var game := await _start_game(level)
 	var bricks_parent := game.get_node("Playfield/Bricks") as Node2D
 	var background := game.get_node("Background") as Node2D
 
@@ -67,30 +67,37 @@ func _test_spawned_bricks() -> void:
 				and brick.scale.is_equal_approx(Vector2.ONE)
 		positions[brick.global_position.round()] = true
 
-	check_equal(bricks.size(), 42, "test level spawns 42 Brick nodes under Playfield/Bricks")
-	check(all_typed, "every brick has a BrickType")
-	check_equal(counts, EXPECTED_COUNTS, "brick types match the level legend")
-	check(all_inside, "every brick lies fully inside the playfield below the HUD bar")
-	check(all_visible, "every brick is visible, opaque and unscaled")
-	check_equal(positions.size(), bricks.size(), "no two bricks share a position")
+	check(game.level == level, "[%s] the game loaded the requested level" % label)
+	check_equal(bricks.size(), LevelFacts.brick_count(level), "[%s] spawns one Brick node per brick cell" % label)
+	check_equal(game.session.bricks_remaining, LevelFacts.destructible_count(level), "[%s] session counts the destructible bricks" % label)
+	check(all_typed, "[%s] every brick has a BrickType" % label)
+	check_equal(counts, LevelFacts.type_counts(level), "[%s] brick types match the level legend" % label)
+	check(all_inside, "[%s] every brick lies fully inside the playfield below the ceiling" % label)
+	check(all_visible, "[%s] every brick is visible, opaque and unscaled" % label)
+	check_equal(positions.size(), bricks.size(), "[%s] no two bricks share a position" % label)
 	check(Brick.SIZE.x > 0.0 and Brick.SIZE.y > 0.0, "brick visual size is non-zero")
-	check(bricks_parent.is_visible_in_tree(), "Bricks container is visible")
+	check(bricks_parent.is_visible_in_tree(), "[%s] Bricks container is visible" % label)
 	check(background.get_index() < game.get_node("Playfield").get_index() and bricks_parent.z_index >= background.z_index,
-			"bricks draw above the background")
+			"[%s] bricks draw above the background" % label)
 
 	if DisplayServer.get_name() == "headless":
-		print("      (skipped pixel check: headless display)")
+		print("      (skipped pixel check for %s: headless display)" % label)
 	elif not bricks.is_empty():
-		await _check_rendered_pixels(bricks)
+		var empty_cell := _first_empty_cell(level)
+		var empty_point := Vector2.INF
+		if empty_cell != Vector2i(-1, -1):
+			empty_point = (game.get_node("Playfield") as Node2D).global_transform \
+					* LevelGrid.get_cell_center(empty_cell.x, empty_cell.y, level.get_column_count())
+		await _check_rendered_pixels(bricks, empty_point, label)
 
-	main.queue_free()
+	game.get_parent().queue_free()
 	await tree.process_frame
 
 
 ## Samples the rendered frame inside each brick's flat fill (clear of the top
-## highlight and the outline) and at an empty arena spot, so a brick that
-## exists but isn't drawn fails.
-func _check_rendered_pixels(bricks: Array[Brick]) -> void:
+## highlight and the outline), so a brick that exists but isn't drawn fails,
+## and at the centre of an empty grid cell (if any), which must stay black.
+func _check_rendered_pixels(bricks: Array[Brick], empty_point: Vector2, label: String) -> void:
 	await RenderingServer.frame_post_draw
 	await RenderingServer.frame_post_draw
 	var viewport := tree.root.get_viewport()
@@ -109,40 +116,54 @@ func _check_rendered_pixels(bricks: Array[Brick]) -> void:
 		sampled += 1
 		if _colors_close(image.get_pixelv(pixel), brick.brick_type.color, 0.08):
 			matched += 1
-	check(sampled == bricks.size(), "every brick center is on screen (%d/%d)" % [sampled, bricks.size()])
-	check(matched == sampled and sampled > 0, "rendered pixels match brick colors at %d/%d bricks" % [matched, sampled])
+	check(sampled == bricks.size(), "[%s] every brick center is on screen (%d/%d)" % [label, sampled, bricks.size()])
+	check(matched == sampled and sampled > 0, "[%s] rendered pixels match brick colors at %d/%d bricks" % [label, matched, sampled])
 
-	var empty := Vector2i((to_screen * Vector2(Playfield.get_size().x * 0.5, 320.0)).round())
-	check(_colors_close(image.get_pixelv(empty), Color.BLACK, 0.03), "empty arena below the bricks is black, not brick-colored")
+	if empty_point != Vector2.INF:
+		var empty := Vector2i((to_screen * empty_point).round())
+		check(_colors_close(image.get_pixelv(empty), Color.BLACK, 0.03), "[%s] an empty grid cell renders black, not brick-colored" % label)
+
+
+## Top-most, then left-most empty cell, or (-1, -1) when every cell holds a brick.
+func _first_empty_cell(level: LevelData) -> Vector2i:
+	for row: int in level.rows.size():
+		for column: int in level.get_column_count():
+			if level.get_brick_type(level.rows[row][column]) == null:
+				return Vector2i(column, row)
+	return Vector2i(-1, -1)
 
 
 ## The level in the running game must pass validation with the live ball and
 ## paddle (ball-sized gaps beside the grid, clearance above the paddle), and
 ## every destructible brick must be reachable: peeling bricks from the open
-## sides (stones never break) has to expose all of them.
-func _test_level_fits_arena_and_is_reachable() -> void:
-	var main := MAIN_SCENE.instantiate()
-	tree.root.add_child(main)
-	await tree.physics_frame
-	var game := main.get_node("Game") as Game
-	var level := game.level
+## sides (stones never break) has to expose all of them. Reachability is a
+## grid-only check; actual clearing is shown by the scripted-autoplay test.
+func _test_level_fits_arena_and_is_reachable(level: LevelData, label: String) -> void:
+	var game := await _start_game(level)
 	var playfield := game.get_node("Playfield") as Playfield
 	var ball_diameter := (game.get_node("Playfield/Ball") as Ball).radius * 2.0
 	var paddle_height := (game.get_node("Playfield/Paddle") as Paddle).size.y
-	var columns := level.get_column_count()
-	var side_gap := LevelGrid.get_side_gap(columns)
+	var side_gap := LevelGrid.get_side_gap(level.get_column_count())
 	var top_gap := LevelGrid.GRID_TOP - playfield.ceiling_y
 
-	check_equal(columns, 11, "test level is 11 columns wide")
 	check_equal(LevelValidator.validate(level, ball_diameter, Playfield.get_size(), paddle_height), PackedStringArray(),
-			"test level passes structural and grid-fit validation with the live ball and paddle")
-	check(game.has_playable_level(), "game accepted the test level")
-	check(top_gap >= ball_diameter, "ball fits between the ceiling and the top row (%.0f px)" % top_gap)
+			"[%s] passes structural and grid-fit validation with the live ball and paddle" % label)
+	check(game.has_playable_level(), "[%s] game accepted the level" % label)
+	check(top_gap >= ball_diameter, "[%s] ball fits between the ceiling and the top row (%.0f px)" % [label, top_gap])
 	var unreachable := LevelReachability.find_unreachable(level, side_gap >= ball_diameter, top_gap >= ball_diameter)
-	check(unreachable.is_empty(), "every destructible brick can be reached (unreachable cells: %s)" % [unreachable])
+	check(unreachable.is_empty(), "[%s] every destructible brick can be reached (unreachable cells: %s)" % [label, unreachable])
 
-	main.queue_free()
+	game.get_parent().queue_free()
 	await tree.process_frame
+
+
+func _start_game(level: LevelData) -> Game:
+	var main := MAIN_SCENE.instantiate()
+	var game := main.get_node("Game") as Game
+	game.level = level
+	tree.root.add_child(main)
+	await tree.physics_frame
+	return game
 
 
 ## The playfield below the ceiling.

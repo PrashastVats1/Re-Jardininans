@@ -1,6 +1,7 @@
 extends "res://tests/test_case.gd"
 ## Smoke test: the main scene loads, builds the level and wires its nodes.
 
+const LevelFacts := preload("res://tests/level_facts.gd")
 const MAIN_SCENE_PATH: String = "res://main.tscn"
 
 
@@ -26,10 +27,13 @@ func run() -> void:
 	if game != null:
 		check(game.session != null, "game created a session")
 		check_equal(game.session.state, GameSession.State.READY, "game starts READY")
-		check_equal(game.session.lives, 3, "game starts with three lives")
-		check_equal(game.session.bricks_remaining, 40, "game counts 40 destructible bricks")
-		var bricks := game.get_node("Playfield/Bricks")
-		check_equal(bricks.get_child_count(), 42, "42 bricks spawned (40 + 2 stones)")
+		check_equal(game.starting_lives, 3, "the default scene starts with three lives")
+		check_equal(game.session.lives, game.starting_lives, "the session starts with the configured lives")
+		check(game.level != null and game.level == game.level_list.get_level(0), "the default level is the level list's first")
+		if game.level != null:
+			check_equal(game.session.bricks_remaining, LevelFacts.destructible_count(game.level), "game counts the level's destructible bricks")
+			var bricks := game.get_node("Playfield/Bricks")
+			check_equal(bricks.get_child_count(), LevelFacts.brick_count(game.level), "every brick in the level is spawned")
 		var ball := game.get_node("Playfield/Ball") as Ball
 		check(ball.paddle != null, "ball is linked to the paddle")
 		check(ball.is_attached(), "ball starts attached to the paddle")
