@@ -1,6 +1,7 @@
 extends "res://tests/test_case.gd"
-## Paddle input: keyboard movement, following the pointer only while it is in
-## the game window, and staying put when the pointer leaves or focus is lost.
+## Paddle input: keyboard movement, following the pointer only while it is over
+## the arena inside the game window, and staying put when the pointer leaves or
+## focus is lost.
 ## Pointer events are injected through Input.parse_input_event in window pixels,
 ## exactly like OS events, so the root viewport's stretch transform is applied.
 
@@ -33,6 +34,7 @@ func run() -> void:
 		await _test_focus_loss_stops_following()
 		await _test_keyboard_overrides_pointer()
 		await _test_zero_motion_is_ignored()
+		await _test_pointer_outside_arena_is_ignored_at_offset_layouts()
 		await _test_click_launches_without_starting_follow()
 	else:
 		print("      (skipped pointer checks: real window receives OS pointer events)")
@@ -147,13 +149,50 @@ func _test_zero_motion_is_ignored() -> void:
 	check_approx(_paddle.position.x, _width * 0.5, "[synthetic] paddle stays centered", 0.01)
 
 
+## Window shapes that put backdrop margins around the design canvas: the pointer
+## maps to the right arena x through the offset, and movement over the margins
+## or right of the arena (where the sidebar goes) never steers the paddle.
+func _test_pointer_outside_arena_is_ignored_at_offset_layouts() -> void:
+	var original_size := tree.root.size
+	var arena := Playfield.get_size()
+	for window_size: Vector2i in [Vector2i(2560, 1080), Vector2i(1024, 768)]:
+		tree.root.size = window_size
+		await _frames(2)
+		var offset := tree.root.get_canvas_transform().origin
+		var label := "[layout %dx%d]" % [window_size.x, window_size.y]
+		check(not offset.is_zero_approx(), "%s design canvas is offset (%s)" % [label, offset])
+
+		await _reset_paddle()
+		_move_pointer_to(300.0)
+		await _frames(SETTLE_FRAMES)
+		check(_paddle.is_following_mouse(), "%s pointer over the arena starts mouse-follow" % label)
+		check_approx(_paddle.position.x, 300.0, "%s paddle reaches the pointer's arena x" % label, 0.5)
+
+		var outside: Dictionary = {}
+		if offset.x >= 4.0:
+			outside["left margin"] = Vector2(-offset.x * 0.5, 400.0)
+			outside["right of the arena"] = Vector2(arena.x + offset.x * 0.5, 400.0)
+		if offset.y >= 4.0:
+			outside["top margin"] = Vector2(300.0, -offset.y * 0.5)
+			outside["bottom margin"] = Vector2(300.0, arena.y + offset.y * 0.5)
+		for place: String in outside:
+			_move_pointer_to(300.0)
+			await _frames(2)
+			Input.parse_input_event(_motion_at(outside[place]))
+			await _frames(SETTLE_FRAMES)
+			check(not _paddle.is_following_mouse(), "%s pointer over the %s stops mouse-follow" % [label, place])
+			check_approx(_paddle.position.x, 300.0, "%s pointer over the %s does not move the paddle" % [label, place], 0.01)
+	tree.root.size = original_size
+	await _frames(2)
+
+
 func _test_click_launches_without_starting_follow() -> void:
 	await _reset_paddle()
 	check_equal(_game.session.state, GameSession.State.READY, "[click] game is waiting for launch")
 	var click := InputEventMouseButton.new()
 	click.button_index = MOUSE_BUTTON_LEFT
 	click.pressed = true
-	click.position = tree.root.get_final_transform() * Vector2(_width * 0.5, 400.0)
+	click.position = _to_window_pixels(Vector2(_width * 0.5, 400.0))
 	click.global_position = click.position
 	Input.parse_input_event(click)
 	var release := click.duplicate() as InputEventMouseButton
@@ -175,9 +214,14 @@ func _move_pointer_to(playfield_x: float) -> void:
 	Input.parse_input_event(_motion_at(Vector2(playfield_x, 400.0)))
 
 
+## Arena point -> window pixels: the world canvas offset, then the stretch transform.
+func _to_window_pixels(arena_point: Vector2) -> Vector2:
+	return tree.root.get_final_transform() * (tree.root.get_canvas_transform() * arena_point)
+
+
 func _motion_at(playfield_point: Vector2) -> InputEventMouseMotion:
 	var event := InputEventMouseMotion.new()
-	event.position = tree.root.get_final_transform() * playfield_point
+	event.position = _to_window_pixels(playfield_point)
 	event.global_position = event.position
 	event.relative = Vector2(4.0, 0.0)
 	event.screen_relative = event.relative

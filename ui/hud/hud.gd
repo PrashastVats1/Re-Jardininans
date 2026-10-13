@@ -1,7 +1,9 @@
 class_name Hud
 extends CanvasLayer
-## Score, lives, controls hint and centered state messages.
+## Score, lives, controls hint and centered state messages. Laid out on the
+## design canvas; Game shifts the whole layer by the same offset as the world.
 
+@onready var _frame: Control = $Frame
 @onready var _score_label: Label = %ScoreLabel
 @onready var _lives_label: Label = %LivesLabel
 @onready var _message_panel: PanelContainer = %MessagePanel
@@ -10,6 +12,14 @@ extends CanvasLayer
 @onready var _pause_panel: PanelContainer = %PausePanel
 
 var _has_message: bool = false
+
+
+func _ready() -> void:
+	# The scene anchors the frame to the full rect so the editor preview looks
+	# right; at runtime the visible area can be larger than the design canvas.
+	_frame.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	_frame.position = Vector2.ZERO
+	_frame.size = GameLayout.get_design_size()
 
 
 func set_score(score: int) -> void:

@@ -21,7 +21,16 @@ corner_radius_bottom_left = 20
 [node name="Hud" type="CanvasLayer"]
 script = ExtResource("1_hud")
 
-[node name="ScoreLabel" type="Label" parent="."]
+[node name="Frame" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="ScoreLabel" type="Label" parent="Frame"]
 unique_name_in_owner = true
 offset_left = 24.0
 offset_top = 10.0
@@ -34,7 +43,7 @@ theme_override_font_sizes/font_size = 28
 text = "Score: 0"
 vertical_alignment = 1
 
-[node name="ControlsLabel" type="Label" parent="."]
+[node name="ControlsLabel" type="Label" parent="Frame"]
 anchor_left = 0.5
 anchor_right = 0.5
 offset_left = -236.0
@@ -50,7 +59,7 @@ text = "Move: ← → / A D / mouse    Launch: Space / click    Pause: P / Esc"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="LivesLabel" type="Label" parent="."]
+[node name="LivesLabel" type="Label" parent="Frame"]
 unique_name_in_owner = true
 anchor_left = 1.0
 anchor_right = 1.0
@@ -67,7 +76,7 @@ text = "Lives: 3"
 horizontal_alignment = 2
 vertical_alignment = 1
 
-[node name="MessagePanel" type="PanelContainer" parent="."]
+[node name="MessagePanel" type="PanelContainer" parent="Frame"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(640, 0)
 anchors_preset = 8
@@ -84,12 +93,12 @@ grow_vertical = 2
 mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
 
-[node name="VBox" type="VBoxContainer" parent="MessagePanel"]
+[node name="VBox" type="VBoxContainer" parent="Frame/MessagePanel"]
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 12
 
-[node name="MessageTitle" type="Label" parent="MessagePanel/VBox"]
+[node name="MessageTitle" type="Label" parent="Frame/MessagePanel/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.86, 0.35, 1)
@@ -99,14 +108,14 @@ theme_override_font_sizes/font_size = 52
 text = "Re-Jardinians!"
 horizontal_alignment = 1
 
-[node name="MessageBody" type="Label" parent="MessagePanel/VBox"]
+[node name="MessageBody" type="Label" parent="Frame/MessagePanel/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.97, 0.86, 1)
 theme_override_font_sizes/font_size = 24
 horizontal_alignment = 1
 
-[node name="PausePanel" type="PanelContainer" parent="."]
+[node name="PausePanel" type="PanelContainer" parent="Frame"]
 unique_name_in_owner = true
 visible = false
 custom_minimum_size = Vector2(640, 0)
@@ -124,12 +133,12 @@ grow_vertical = 2
 mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
 
-[node name="VBox" type="VBoxContainer" parent="PausePanel"]
+[node name="VBox" type="VBoxContainer" parent="Frame/PausePanel"]
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 12
 
-[node name="PauseTitle" type="Label" parent="PausePanel/VBox"]
+[node name="PauseTitle" type="Label" parent="Frame/PausePanel/VBox"]
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.86, 0.35, 1)
 theme_override_colors/font_outline_color = Color(0.08, 0.16, 0.06, 1)
@@ -138,7 +147,7 @@ theme_override_font_sizes/font_size = 52
 text = "Paused"
 horizontal_alignment = 1
 
-[node name="PauseBody" type="Label" parent="PausePanel/VBox"]
+[node name="PauseBody" type="Label" parent="Frame/PausePanel/VBox"]
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.97, 0.86, 1)
 theme_override_font_sizes/font_size = 24

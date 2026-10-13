@@ -1,6 +1,7 @@
 extends "res://tests/test_case.gd"
-## The playfield size has one source (the project's base viewport size), and
-## the walls, paddle, ball, bricks, background and HUD are all derived from it.
+## The design canvas has one source (the project's base viewport size), the
+## arena size has one source (Playfield.get_size()), and the walls, paddle,
+## ball, bricks, background and HUD are all derived from them.
 
 const MAIN_SCENE: PackedScene = preload("res://main.tscn")
 const SCANNED_DIRS: PackedStringArray = ["res://gameplay", "res://entities", "res://ui", "res://data"]
@@ -13,15 +14,19 @@ func run() -> void:
 
 
 func _test_single_source_of_truth() -> void:
-	var size := Playfield.get_size()
-	check_equal(size, Vector2(1280.0, 720.0), "playfield is 1280x720")
-	check_equal(size, Vector2(
+	var design := GameLayout.get_design_size()
+	check_equal(design, Vector2(1280.0, 720.0), "design canvas is 1280x720")
+	check_equal(design, Vector2(
 			ProjectSettings.get_setting("display/window/size/viewport_width"),
 			ProjectSettings.get_setting("display/window/size/viewport_height")),
-			"playfield size comes from the project's viewport size")
-	check_equal(Playfield.get_rect(), Rect2(Vector2.ZERO, size), "playfield rect starts at the origin")
-	check_approx(size.x / size.y, 16.0 / 9.0, "playfield is 16:9")
-	check_equal(ProjectSettings.get_setting("display/window/stretch/aspect"), "keep", "16:9 is kept with letterboxing")
+			"design canvas comes from the project's viewport size")
+	check_approx(design.x / design.y, 16.0 / 9.0, "design canvas is 16:9")
+	check_equal(ProjectSettings.get_setting("display/window/stretch/mode"), "canvas_items", "canvas_items stretch")
+	check_equal(ProjectSettings.get_setting("display/window/stretch/aspect"), "expand", "expand aspect shows extra backdrop instead of bars")
+
+	var size := Playfield.get_size()
+	check_equal(size, design, "arena fills the design canvas until the sidebar arena lands")
+	check_equal(Playfield.get_rect(), Rect2(Vector2.ZERO, size), "arena rect starts at the origin")
 
 
 func _test_no_hard_coded_playfield_numbers() -> void:
@@ -75,14 +80,17 @@ func _test_scene_uses_playfield_size() -> void:
 	var background := game.get_node("Background")
 	check(not "playfield_size" in background, "background has no separate playfield size")
 
-	var score := game.get_node("Hud/ScoreLabel") as Control
-	var controls := game.get_node("Hud/ControlsLabel") as Control
-	var lives := game.get_node("Hud/LivesLabel") as Control
-	var message := game.get_node("Hud/MessagePanel") as Control
+	# HUD positions are in design-canvas units (the layer offset is applied separately).
+	var design := GameLayout.get_design_size()
+	var score := game.get_node("Hud/Frame/ScoreLabel") as Control
+	var controls := game.get_node("Hud/Frame/ControlsLabel") as Control
+	var lives := game.get_node("Hud/Frame/LivesLabel") as Control
+	var message := game.get_node("Hud/Frame/MessagePanel") as Control
+	check_equal((game.get_node("Hud/Frame") as Control).get_rect(), Rect2(Vector2.ZERO, design), "HUD frame is pinned to the design canvas")
 	check_approx(score.get_global_rect().position.x, 24.0, "score label is 24 px from the left edge")
-	check_approx(lives.get_global_rect().end.x, size.x - 24.0, "lives label is 24 px from the right edge")
-	check_approx(controls.get_global_rect().get_center().x, size.x * 0.5, "controls hint is centered")
-	check_approx(message.get_global_rect().get_center().x, size.x * 0.5, "message panel is centered")
+	check_approx(lives.get_global_rect().end.x, design.x - 24.0, "lives label is 24 px from the right edge")
+	check_approx(controls.get_global_rect().get_center().x, design.x * 0.5, "controls hint is centered")
+	check_approx(message.get_global_rect().get_center().x, design.x * 0.5, "message panel is centered")
 	check(score.get_global_rect().end.x <= controls.get_global_rect().position.x + 0.01
 			and controls.get_global_rect().end.x <= lives.get_global_rect().position.x + 0.01,
 			"HUD labels do not overlap")
@@ -99,11 +107,13 @@ func _test_scene_uses_playfield_size() -> void:
 func _check_background_fills_playfield(size: Vector2) -> void:
 	await RenderingServer.frame_post_draw
 	await RenderingServer.frame_post_draw
-	var image := tree.root.get_texture().get_image()
-	var scale := Vector2(image.get_size()) / size
+	var viewport := tree.root.get_viewport()
+	var image := viewport.get_texture().get_image()
+	var scale := Vector2(image.get_size()) / viewport.get_visible_rect().size
+	var to_screen := Transform2D(0.0, scale, 0.0, Vector2.ZERO) * viewport.get_canvas_transform()
 	var grass := Color(0.3, 0.58, 0.22)
 	for point: Vector2 in [Vector2(4.0, size.y - 6.0), Vector2(size.x - 4.0, size.y - 6.0)]:
-		var pixel := Vector2i((point * scale).floor())
+		var pixel := Vector2i((to_screen * point).floor())
 		var color := image.get_pixelv(pixel)
 		check(absf(color.r - grass.r) < 0.06 and absf(color.g - grass.g) < 0.06 and absf(color.b - grass.b) < 0.06,
 				"background grass reaches playfield corner %s (got %s)" % [point, color])

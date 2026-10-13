@@ -23,13 +23,26 @@ func _draw() -> void:
 		for puff: Vector3 in [Vector3(-34.0, 6.0, 26.0), Vector3(0.0, 0.0, 34.0), Vector3(36.0, 8.0, 24.0)]:
 			draw_circle(cloud + Vector2(puff.x, puff.y), puff.z, Color(1.0, 1.0, 1.0, 0.55), true, -1.0, true)
 
-	draw_circle(Vector2(w * 0.18, h + 300.0), 460.0, far_hill_color, true, -1.0, true)
-	draw_circle(Vector2(w * 0.82, h + 340.0), 520.0, far_hill_color, true, -1.0, true)
-	draw_circle(Vector2(w * 0.5, h + 420.0), 520.0, near_hill_color, true, -1.0, true)
+	# Shapes that overhang the playfield are clipped to it, so nothing spills
+	# into the backdrop margins around the design canvas.
+	var bounds := Rect2(Vector2.ZERO, playfield_size)
+	_draw_clipped_circle(Vector2(w * 0.18, h + 300.0), 460.0, far_hill_color, bounds)
+	_draw_clipped_circle(Vector2(w * 0.82, h + 340.0), 520.0, far_hill_color, bounds)
+	_draw_clipped_circle(Vector2(w * 0.5, h + 420.0), 520.0, near_hill_color, bounds)
 	draw_rect(Rect2(0.0, h - 18.0, w, 18.0), grass_color)
 
 	draw_rect(Rect2(0.0, 0.0, w, hud_bar_height), hedge_color)
 	var x := 0.0
 	while x <= w:
-		draw_circle(Vector2(x, hud_bar_height - 6.0), 12.0, hedge_color, true, -1.0, true)
+		_draw_clipped_circle(Vector2(x, hud_bar_height - 6.0), 12.0, hedge_color, bounds)
 		x += 24.0
+
+
+func _draw_clipped_circle(center: Vector2, radius: float, color: Color, bounds: Rect2) -> void:
+	var circle := PackedVector2Array()
+	var segments := clampi(int(radius * 0.5), 16, 128)
+	for i: int in segments:
+		circle.append(center + Vector2.from_angle(TAU * i / segments) * radius)
+	var clip := PackedVector2Array([bounds.position, Vector2(bounds.end.x, bounds.position.y), bounds.end, Vector2(bounds.position.x, bounds.end.y)])
+	for part: PackedVector2Array in Geometry2D.intersect_polygons(circle, clip):
+		draw_colored_polygon(part, color)

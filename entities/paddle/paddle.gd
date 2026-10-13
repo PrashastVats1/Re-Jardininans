@@ -1,8 +1,8 @@
 class_name Paddle
 extends AnimatableBody2D
 ## Player paddle. Keyboard input moves it at a fixed speed. Moving the pointer
-## inside the game window switches to following it; the pointer leaving the
-## window or the window losing focus stops following, so the paddle stays put.
+## over the arena switches to following it; the pointer leaving the arena or the
+## window, or the window losing focus, stops following, so the paddle stays put.
 
 @export var size: Vector2 = Vector2(140.0, 22.0)
 @export var keyboard_speed: float = 900.0
@@ -52,7 +52,13 @@ func _unhandled_input(event: InputEvent) -> void:
 	var window := get_window()
 	if not window.has_focus() or not _is_inside_window(motion, window):
 		return
-	_mouse_target_x = (get_parent() as CanvasItem).make_input_local(motion).position.x
+	# Only the arena steers the paddle, not the sidebar or the backdrop margins.
+	var local_motion := (get_parent() as CanvasItem).make_input_local(motion) as InputEventMouseMotion
+	var arena_point := local_motion.position
+	if not Playfield.get_rect().has_point(arena_point):
+		stop_following_mouse()
+		return
+	_mouse_target_x = arena_point.x
 	_follow_mouse = true
 
 

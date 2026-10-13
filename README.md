@@ -48,14 +48,22 @@ open the editor) so new `class_name` types are registered before testing.
 ## Project settings at a glance
 
 - Renderer: GL Compatibility
-- Logical resolution: 1280×720, landscape, fixed 16:9 playfield
-  (`canvas_items` stretch, `keep` aspect — letterboxed on other window shapes).
-  The project's viewport width/height are the single source of truth for the
-  playfield size; code reads them through `Playfield.get_size()`.
+- Logical design canvas: 1280×720, landscape, `canvas_items` stretch with
+  `expand` aspect. The window scales the canvas uniformly (nothing is
+  stretched); on wider or taller windows the canvas is centered and the extra
+  space shows a garden hedge backdrop instead of black bars. Code reads the
+  canvas size from the project's viewport width/height through
+  `GameLayout.get_design_size()`.
+- Gameplay arena: fixed size in arena-local coordinates, read through
+  `Playfield.get_size()`. It currently fills the whole design canvas; it will
+  narrow to 960×720 to make room for the sidebar when the levels are
+  redesigned. Resizing the window only offsets the canvas transforms — the
+  ball, paddle, bricks and walls never move.
+- Minimum window size: 960×540 (set at startup)
 - 2D physics interpolation enabled
 - Input actions: `move_left`, `move_right`, `launch_ball`, `pause`
-  (moving the mouse inside the window steers the paddle; it stays put when the
-  pointer leaves the window)
+  (moving the mouse over the arena steers the paddle; it stays put when the
+  pointer moves off the arena or leaves the window)
 - 2D physics layers: `world`, `paddle`, `ball`, `bricks`, `killzone`
 
 ## Folder layout

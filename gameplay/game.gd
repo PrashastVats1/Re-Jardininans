@@ -29,6 +29,10 @@ var _restarting: bool = false
 
 
 func _ready() -> void:
+	get_window().min_size = GameLayout.MIN_WINDOW_SIZE
+	get_viewport().size_changed.connect(_apply_layout)
+	_apply_layout()
+
 	session = GameSession.new(starting_lives, _build_level())
 	session.score_changed.connect(_hud.set_score)
 	session.lives_changed.connect(_hud.set_lives)
@@ -58,6 +62,16 @@ func _notification(what: int) -> void:
 	if what == NOTIFICATION_APPLICATION_FOCUS_OUT and pause_on_focus_loss and session != null \
 			and session.state == GameSession.State.PLAYING and not get_tree().paused:
 		_toggle_pause()
+
+
+## Centers the design canvas in the visible area by offsetting only the canvas
+## transforms (world and HUD together), so physics bodies never move. Avoid a
+## Camera2D here: with physics interpolation it applies offsets a frame late.
+func _apply_layout() -> void:
+	var viewport := get_viewport()
+	var offset := GameLayout.get_offset(viewport.get_visible_rect().size)
+	viewport.canvas_transform = Transform2D(0.0, offset)
+	_hud.offset = offset
 
 
 ## Spawns bricks and returns how many are destructible.

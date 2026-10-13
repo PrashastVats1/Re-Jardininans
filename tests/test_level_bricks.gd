@@ -93,7 +93,7 @@ func _check_rendered_pixels(bricks: Array[Brick]) -> void:
 	await RenderingServer.frame_post_draw
 	var viewport := tree.root.get_viewport()
 	var image := viewport.get_texture().get_image()
-	# The captured image covers only the 16:9 game area (no letterbox bars),
+	# The captured image covers the whole visible area (expand aspect, no bars),
 	# scaled to whatever size the window manager gave the window.
 	var scale := Vector2(image.get_size()) / viewport.get_visible_rect().size
 	var to_screen := Transform2D(0.0, scale, 0.0, Vector2.ZERO) * viewport.get_canvas_transform()
