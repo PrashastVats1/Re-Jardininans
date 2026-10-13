@@ -4,7 +4,8 @@ extends "res://tests/test_case.gd"
 
 const MAIN_SCENE: PackedScene = preload("res://main.tscn")
 const MAX_STEPS_TO_WIN: int = 60 * 60 * 5
-const EXPECTED_FULL_SCORE: int = 10 * 120 + 42 * 50
+## 7 clay pots at 120 points plus 33 blooms at 50 points.
+const EXPECTED_FULL_SCORE: int = 7 * 120 + 33 * 50
 
 
 func run() -> void:

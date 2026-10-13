@@ -1,6 +1,6 @@
 extends Node2D
-## Procedural garden backdrop: sky gradient, rolling hills, grass and the hedge
-## behind the HUD bar.
+## Procedural garden scenery for the arena: sky gradient, rolling hills, grass
+## and the hedge behind the HUD bar. Drawn only inside Playfield.get_size().
 
 @export var hud_bar_height: float = 64.0
 @export var sky_top: Color = Color(0.53, 0.8, 0.98)
@@ -19,7 +19,7 @@ func _draw() -> void:
 			PackedVector2Array([Vector2(0.0, 0.0), Vector2(w, 0.0), Vector2(w, h), Vector2(0.0, h)]),
 			PackedColorArray([sky_top, sky_top, sky_bottom, sky_bottom]))
 
-	for cloud: Vector2 in [Vector2(180.0, 340.0), Vector2(760.0, 380.0), Vector2(1110.0, 320.0)]:
+	for cloud: Vector2 in [Vector2(w * 0.14, 340.0), Vector2(w * 0.59, 380.0), Vector2(w * 0.87, 320.0)]:
 		for puff: Vector3 in [Vector3(-34.0, 6.0, 26.0), Vector3(0.0, 0.0, 34.0), Vector3(36.0, 8.0, 24.0)]:
 			draw_circle(cloud + Vector2(puff.x, puff.y), puff.z, Color(1.0, 1.0, 1.0, 0.55), true, -1.0, true)
 

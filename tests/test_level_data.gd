@@ -14,8 +14,8 @@ func _test_test_level_resource() -> void:
 	if level == null:
 		return
 	check_equal(level.validate(), PackedStringArray(), "test level has no validation problems")
-	check_equal(level.get_column_count(), 14, "test level is 14 columns wide")
-	check_equal(level.count_destructible(), 52, "test level has 52 destructible bricks")
+	check_equal(level.get_column_count(), 11, "test level is 11 columns wide")
+	check_equal(level.count_destructible(), 40, "test level has 40 destructible bricks")
 	check(level.get_brick_type(".") == null, "'.' is an empty cell")
 	var stone := level.get_brick_type("S")
 	check(stone != null and not stone.destructible, "'S' is an indestructible stone")

@@ -6,10 +6,10 @@ extends "res://tests/test_case.gd"
 const MAIN_SCENE: PackedScene = preload("res://main.tscn")
 const TEST_LEVEL_PATH: String = "res://data/levels/test_level.tres"
 const EXPECTED_COUNTS: Dictionary = {
-	"Clay pot": 10,
-	"Red bloom": 14,
-	"Yellow bloom": 14,
-	"Blue bloom": 14,
+	"Clay pot": 7,
+	"Red bloom": 11,
+	"Yellow bloom": 11,
+	"Blue bloom": 11,
 	"Garden stone": 2,
 }
 
@@ -18,6 +18,7 @@ func run() -> void:
 	_test_no_untyped_literal_defaults_on_typed_array_exports()
 	_test_level_file_keeps_rows()
 	await _test_spawned_bricks()
+	await _test_level_fits_arena_and_is_reachable()
 
 
 ## The editor builds non-tool resources from export defaults; a bare [] default
@@ -66,7 +67,7 @@ func _test_spawned_bricks() -> void:
 				and brick.scale.is_equal_approx(Vector2.ONE)
 		positions[brick.global_position.round()] = true
 
-	check_equal(bricks.size(), 54, "test level spawns 54 Brick nodes under Playfield/Bricks")
+	check_equal(bricks.size(), 42, "test level spawns 42 Brick nodes under Playfield/Bricks")
 	check(all_typed, "every brick has a BrickType")
 	check_equal(counts, EXPECTED_COUNTS, "brick types match the level legend")
 	check(all_inside, "every brick lies fully inside the playfield below the HUD bar")
@@ -113,6 +114,72 @@ func _check_rendered_pixels(bricks: Array[Brick]) -> void:
 	var sky := Vector2i((to_screen * Vector2(Playfield.get_size().x * 0.5, 320.0)).round())
 	var sky_color := image.get_pixelv(sky)
 	check(not _colors_close(sky_color, bricks[0].brick_type.color, 0.08), "empty sky below the bricks is not brick-colored")
+
+
+## The level must fit the arena with ball-sized gaps around the grid, and every
+## destructible brick must be reachable: peeling bricks from the open side
+## (stones never break) has to expose all of them.
+func _test_level_fits_arena_and_is_reachable() -> void:
+	var main := MAIN_SCENE.instantiate()
+	tree.root.add_child(main)
+	await tree.physics_frame
+	var game := main.get_node("Game") as Game
+	var level := game.level
+	var playfield := game.get_node("Playfield") as Playfield
+	var ball_diameter := (game.get_node("Playfield/Ball") as Ball).radius * 2.0
+	var arena := Playfield.get_size()
+	var cell := Brick.SIZE + game.brick_spacing
+	var columns := level.get_column_count()
+	var side_gap := (arena.x - columns * cell.x) * 0.5
+	var top_gap := game.brick_area_top - playfield.ceiling_y
+	var grid_bottom := game.brick_area_top + level.rows.size() * cell.y
+	var paddle_top := arena.y - game.paddle_bottom_offset - (game.get_node("Playfield/Paddle") as Paddle).size.y * 0.5
+
+	check_equal(columns, 11, "test level is 11 columns wide")
+	check(side_gap >= ball_diameter, "ball fits beside the grid (%.0f px gaps, ball %.0f px)" % [side_gap, ball_diameter])
+	check(top_gap >= ball_diameter, "ball fits between the ceiling and the top row (%.0f px)" % top_gap)
+	check(paddle_top - grid_bottom >= 200.0, "at least 200 px of open play space between bricks and paddle (%.0f px)" % [paddle_top - grid_bottom])
+
+	# Out-of-grid neighbours are open space only where the ball can get there.
+	var open := {}
+	for row: int in level.rows.size():
+		for column: int in columns:
+			open[Vector2i(column, row)] = false
+	var changed := true
+	while changed:
+		changed = false
+		for key: Vector2i in open:
+			if open[key] or _cell_type(level, key) != null and not _cell_type(level, key).destructible:
+				continue
+			for step: Vector2i in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]:
+				var next := key + step
+				var reachable: bool
+				if open.has(next):
+					reachable = open[next]
+				elif next.y >= level.rows.size():
+					reachable = true
+				elif next.y < 0:
+					reachable = top_gap >= ball_diameter
+				else:
+					reachable = side_gap >= ball_diameter
+				if reachable:
+					open[key] = true
+					changed = true
+					break
+	var unreachable: Array[Vector2i] = []
+	for key: Vector2i in open:
+		var brick_type := _cell_type(level, key)
+		if brick_type != null and brick_type.destructible and not open[key]:
+			unreachable.append(key)
+	check(unreachable.is_empty(), "every destructible brick can be reached (unreachable cells: %s)" % [unreachable])
+
+	main.queue_free()
+	await tree.process_frame
+
+
+func _cell_type(level: LevelData, cell: Vector2i) -> BrickType:
+	var line := level.rows[cell.y]
+	return level.get_brick_type(line[cell.x]) if cell.x < line.length() else null
 
 
 ## The playfield below the 64 px HUD bar.

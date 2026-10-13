@@ -84,7 +84,11 @@ func _build_level() -> int:
 
 	var cell := Brick.SIZE + brick_spacing
 	var columns := level.get_column_count()
-	var first_center := Vector2((Playfield.get_size().x - columns * cell.x) * 0.5, brick_area_top) + cell * 0.5
+	var arena_width := Playfield.get_size().x
+	if columns * cell.x > arena_width:
+		push_error("%s: %d columns need %d px but the arena is %d px wide; outer bricks would sit inside the walls."
+				% [level.resource_path, columns, columns * cell.x, arena_width])
+	var first_center := Vector2((arena_width - columns * cell.x) * 0.5, brick_area_top) + cell * 0.5
 	var destructible := 0
 	for row: int in level.rows.size():
 		var line := level.rows[row]

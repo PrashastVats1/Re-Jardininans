@@ -54,16 +54,24 @@ open the editor) so new `class_name` types are registered before testing.
   space shows a garden hedge backdrop instead of black bars. Code reads the
   canvas size from the project's viewport width/height through
   `GameLayout.get_design_size()`.
-- Gameplay arena: fixed size in arena-local coordinates, read through
-  `Playfield.get_size()`. It currently fills the whole design canvas; it will
-  narrow to 960×720 to make room for the sidebar when the levels are
-  redesigned. Resizing the window only offsets the canvas transforms — the
-  ball, paddle, bricks and walls never move.
+- Gameplay arena: 960×720 on the left of the design canvas, in arena-local
+  coordinates, read through `Playfield.get_size()` (the design canvas minus
+  `GameLayout.SIDEBAR_WIDTH`). The 320 px column on the right is reserved for
+  the information sidebar; until it exists, it shows the hedge backdrop and
+  the score/lives bar sits along the top of the arena. Resizing the window
+  only offsets the canvas transforms — the ball, paddle, bricks and walls
+  never move.
+- Test level (`data/levels/test_level.tres`): 11 columns × 5 rows, 40
+  destructible bricks plus 2 stones, leaving 40 px between the grid and each
+  side wall.
 - Minimum window size: 960×540 (set at startup)
-- 2D physics interpolation enabled
+- 2D physics interpolation enabled, physics at the default 60 ticks/s
+- Frame rate capped at 60 FPS (`application/run/max_fps`) for even frame
+  pacing; vsync alone does not pace frames reliably on every Linux desktop
 - Input actions: `move_left`, `move_right`, `launch_ball`, `pause`
-  (moving the mouse over the arena steers the paddle; it stays put when the
-  pointer moves off the arena or leaves the window)
+  (moving the mouse over the arena steers the paddle; when the pointer moves
+  off the arena or leaves the window, the paddle finishes its last move and
+  then stays put; a movement key or losing focus stops it at once)
 - 2D physics layers: `world`, `paddle`, `ball`, `bricks`, `killzone`
 
 ## Folder layout

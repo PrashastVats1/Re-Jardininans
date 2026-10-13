@@ -10,6 +10,9 @@ extends RefCounted
 ## backdrop. Gameplay never moves: only the canvas transforms are offset.
 
 const MIN_WINDOW_SIZE: Vector2i = Vector2i(960, 540)
+## Width of the information sidebar on the right of the design canvas; the
+## gameplay arena (Playfield) takes the rest.
+const SIDEBAR_WIDTH: float = 320.0
 
 
 static func get_design_size() -> Vector2:

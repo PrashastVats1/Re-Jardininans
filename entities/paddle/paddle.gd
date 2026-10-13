@@ -1,21 +1,26 @@
 class_name Paddle
 extends AnimatableBody2D
 ## Player paddle. Keyboard input moves it at a fixed speed. Moving the pointer
-## over the arena switches to following it; the pointer leaving the arena or the
-## window, or the window losing focus, stops following, so the paddle stays put.
+## over the arena switches to following it. When the pointer leaves the arena or
+## the window, new pointer positions are ignored but the paddle still finishes
+## moving to the last in-arena target. A movement key or the window losing focus
+## cancels mouse control at once, so the paddle stays put.
 
 @export var size: Vector2 = Vector2(140.0, 22.0)
 @export var keyboard_speed: float = 900.0
 ## Caps how fast the paddle chases the pointer so it never teleports through the ball.
-@export var mouse_follow_speed: float = 2400.0
+@export var mouse_follow_speed: float = 6000.0
 @export var body_color: Color = Color(0.55, 0.35, 0.18)
 @export var leaf_color: Color = Color(0.36, 0.72, 0.28)
 
 ## Sign of the most recent horizontal movement, used to pick the launch side.
 var last_direction_x: float = 1.0
 
+## The pointer is over the arena and its motion sets the target.
 var _follow_mouse: bool = false
-## Last in-window pointer x, in the parent's coordinates.
+## The paddle is still moving toward _mouse_target_x.
+var _has_mouse_target: bool = false
+## Last in-arena pointer x clamped to the paddle's range, in the parent's coordinates.
 var _mouse_target_x: float = 0.0
 
 @onready var _collision_shape: CollisionShape2D = $CollisionShape2D
@@ -24,7 +29,7 @@ var _mouse_target_x: float = 0.0
 func _ready() -> void:
 	(_collision_shape.shape as RectangleShape2D).size = size
 	var window := get_window()
-	window.mouse_exited.connect(stop_following_mouse)
+	window.mouse_exited.connect(release_mouse)
 	window.focus_exited.connect(stop_following_mouse)
 	queue_redraw()
 
@@ -37,8 +42,20 @@ func is_following_mouse() -> bool:
 	return _follow_mouse
 
 
+func has_mouse_target() -> bool:
+	return _has_mouse_target
+
+
+## Ignores further pointer motion but lets the paddle finish moving to the last
+## in-arena target.
+func release_mouse() -> void:
+	_follow_mouse = false
+
+
+## Cancels mouse control at once, dropping any unfinished target.
 func stop_following_mouse() -> void:
 	_follow_mouse = false
+	_has_mouse_target = false
 
 
 # The target comes from motion events rather than polling the mouse position:
@@ -56,26 +73,33 @@ func _unhandled_input(event: InputEvent) -> void:
 	var local_motion := (get_parent() as CanvasItem).make_input_local(motion) as InputEventMouseMotion
 	var arena_point := local_motion.position
 	if not Playfield.get_rect().has_point(arena_point):
-		stop_following_mouse()
+		release_mouse()
 		return
-	_mouse_target_x = arena_point.x
+	_mouse_target_x = _clamp_to_range(arena_point.x)
 	_follow_mouse = true
+	_has_mouse_target = true
 
 
 func _physics_process(delta: float) -> void:
 	var axis := Input.get_axis("move_left", "move_right")
 	var target_x := position.x
 	if not is_zero_approx(axis):
-		_follow_mouse = false
+		stop_following_mouse()
 		target_x += axis * keyboard_speed * delta
-	elif _follow_mouse:
+	elif _has_mouse_target:
 		target_x = move_toward(position.x, _mouse_target_x, mouse_follow_speed * delta)
+		if not _follow_mouse and is_equal_approx(target_x, _mouse_target_x):
+			_has_mouse_target = false
 
-	var half_width := get_half_width()
-	target_x = clampf(target_x, half_width, Playfield.get_size().x - half_width)
+	target_x = _clamp_to_range(target_x)
 	if not is_equal_approx(target_x, position.x):
 		last_direction_x = signf(target_x - position.x)
 	position.x = target_x
+
+
+func _clamp_to_range(x: float) -> float:
+	var half_width := get_half_width()
+	return clampf(x, half_width, Playfield.get_size().x - half_width)
 
 
 # Motion can still arrive from outside the window while a button is held.

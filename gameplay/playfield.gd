@@ -14,10 +14,9 @@ const WALL_THICKNESS: float = 200.0
 @onready var _top_wall: CollisionShape2D = $Walls/Top
 
 
-## Until the levels are redesigned for the narrower sidebar arena, the arena
-## fills the whole design canvas.
+## The design canvas minus the sidebar on its right (960x720 for 1280x720).
 static func get_size() -> Vector2:
-	return GameLayout.get_design_size()
+	return GameLayout.get_design_size() - Vector2(GameLayout.SIDEBAR_WIDTH, 0.0)
 
 
 static func get_rect() -> Rect2:

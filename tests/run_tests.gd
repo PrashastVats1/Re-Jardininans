@@ -17,6 +17,7 @@ const TEST_SCRIPTS: Array[String] = [
 	"res://tests/test_playfield_dimensions.gd",
 	"res://tests/test_game_layout.gd",
 	"res://tests/test_responsive_layout.gd",
+	"res://tests/test_frame_rate.gd",
 ]
 
 

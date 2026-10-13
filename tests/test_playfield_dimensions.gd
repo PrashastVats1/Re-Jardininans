@@ -25,7 +25,9 @@ func _test_single_source_of_truth() -> void:
 	check_equal(ProjectSettings.get_setting("display/window/stretch/aspect"), "expand", "expand aspect shows extra backdrop instead of bars")
 
 	var size := Playfield.get_size()
-	check_equal(size, design, "arena fills the design canvas until the sidebar arena lands")
+	check_equal(size, Vector2(960.0, 720.0), "arena is 960x720")
+	check_equal(size, design - Vector2(GameLayout.SIDEBAR_WIDTH, 0.0), "arena is the design canvas minus the sidebar")
+	check_equal(GameLayout.SIDEBAR_WIDTH, 320.0, "sidebar column is 320 wide")
 	check_equal(Playfield.get_rect(), Rect2(Vector2.ZERO, size), "arena rect starts at the origin")
 
 
@@ -81,22 +83,35 @@ func _test_scene_uses_playfield_size() -> void:
 	check(not "playfield_size" in background, "background has no separate playfield size")
 
 	# HUD positions are in design-canvas units (the layer offset is applied separately).
-	var design := GameLayout.get_design_size()
 	var score := game.get_node("Hud/Frame/ScoreLabel") as Control
 	var controls := game.get_node("Hud/Frame/ControlsLabel") as Control
 	var lives := game.get_node("Hud/Frame/LivesLabel") as Control
 	var message := game.get_node("Hud/Frame/MessagePanel") as Control
-	check_equal((game.get_node("Hud/Frame") as Control).get_rect(), Rect2(Vector2.ZERO, design), "HUD frame is pinned to the design canvas")
-	check_approx(score.get_global_rect().position.x, 24.0, "score label is 24 px from the left edge")
-	check_approx(lives.get_global_rect().end.x, design.x - 24.0, "lives label is 24 px from the right edge")
-	check_approx(controls.get_global_rect().get_center().x, design.x * 0.5, "controls hint is centered")
-	check_approx(message.get_global_rect().get_center().x, design.x * 0.5, "message panel is centered")
+	check_equal((game.get_node("Hud/Frame") as Control).get_rect(), Rect2(Vector2.ZERO, size), "HUD frame covers exactly the arena")
+	check_approx(score.get_global_rect().position.x, 24.0, "score label is 24 px from the arena's left edge")
+	check_approx(lives.get_global_rect().end.x, size.x - 24.0, "lives label is 24 px from the arena's right edge")
+	check_approx(controls.get_global_rect().get_center().x, size.x * 0.5, "controls hint is centered over the arena")
+	check_approx(message.get_global_rect().get_center().x, size.x * 0.5, "message panel is centered over the arena")
+	var pause_panel := game.get_node("Hud/Frame/PausePanel") as Control
+	check_approx(pause_panel.get_global_rect().get_center().x, size.x * 0.5, "pause panel is centered over the arena")
+	var arena_rect := Playfield.get_rect()
+	var all_in_arena := true
+	var too_wide: PackedStringArray = []
+	(score as Label).text = "Score: 999999"
+	for label: Label in [score, controls, lives]:
+		all_in_arena = all_in_arena and arena_rect.encloses(label.get_global_rect())
+		if label.get_minimum_size().x > label.size.x + 0.01:
+			too_wide.append("%s needs %.0f, has %.0f" % [label.name, label.get_minimum_size().x, label.size.x])
+	check(all_in_arena and arena_rect.encloses(message.get_global_rect()) and arena_rect.encloses(pause_panel.get_global_rect()),
+			"HUD stays over the arena, out of the sidebar column")
+	check(too_wide.is_empty(), "HUD label text fits its box, score up to 6 digits %s" % [too_wide])
 	check(score.get_global_rect().end.x <= controls.get_global_rect().position.x + 0.01
 			and controls.get_global_rect().end.x <= lives.get_global_rect().position.x + 0.01,
 			"HUD labels do not overlap")
 
 	if DisplayServer.get_name() != "headless":
 		await _check_background_fills_playfield(size)
+		await _check_sidebar_column_is_free(size)
 
 	main.queue_free()
 	await tree.process_frame
@@ -132,3 +147,24 @@ func _files(dir_path: String) -> PackedStringArray:
 	for sub: String in DirAccess.get_directories_at(dir_path):
 		files.append_array(_files(dir_path.path_join(sub)))
 	return files
+
+
+## The sidebar column right of the arena shows only the backdrop for now: no
+## sky, bricks, paddle or HUD is drawn there.
+func _check_sidebar_column_is_free(size: Vector2) -> void:
+	var viewport := tree.root.get_viewport()
+	var image := viewport.get_texture().get_image()
+	var scale := Vector2(image.get_size()) / viewport.get_visible_rect().size
+	var to_screen := Transform2D(0.0, scale, 0.0, Vector2.ZERO) * viewport.get_canvas_transform()
+	var backdrop := preload("res://gameplay/garden_backdrop.gd").new() as Control
+	var allowed: Array[Color] = [backdrop.base_color, backdrop.leaf_color, backdrop.flower_color]
+	backdrop.free()
+	var bad: PackedStringArray = []
+	for point: Vector2 in [Vector2(size.x + 8.0, 30.0), Vector2(size.x + 160.0, 360.0), Vector2(size.x + 300.0, size.y - 10.0)]:
+		var color := image.get_pixelv(Vector2i((to_screen * point).floor()))
+		var matches := false
+		for expected: Color in allowed:
+			matches = matches or (absf(color.r - expected.r) < 0.05 and absf(color.g - expected.g) < 0.05 and absf(color.b - expected.b) < 0.05)
+		if not matches:
+			bad.append("%s=%s" % [point, color])
+	check(bad.is_empty(), "sidebar column shows only the backdrop %s" % [bad])
