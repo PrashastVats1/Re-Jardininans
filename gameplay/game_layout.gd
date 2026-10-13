@@ -6,7 +6,7 @@ extends RefCounted
 ## (display/window/size/viewport_width and viewport_height in project.godot).
 ## With canvas_items stretch and expand aspect the visible logical area is at
 ## least the design canvas and grows along one axis to match the window's
-## shape. The design canvas is centered in it; the extra space shows the garden
+## shape. The design canvas is centered in it; the extra space shows the plain
 ## backdrop. Gameplay never moves: only the canvas transforms are offset.
 
 const MIN_WINDOW_SIZE: Vector2i = Vector2i(960, 540)

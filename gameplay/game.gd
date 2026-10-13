@@ -40,11 +40,12 @@ func _ready() -> void:
 
 	_hud.set_score(session.score)
 	_hud.set_lives(session.lives)
+	_hud.set_level(level.display_name if level != null else "")
 	var playfield_size := Playfield.get_size()
 	_paddle.position = Vector2(playfield_size.x * 0.5, playfield_size.y - paddle_bottom_offset)
 	_paddle.reset_physics_interpolation()
 	_ball.attach_to_paddle()
-	_hud.show_message("Re-Jardinians!", "Clear every flower brick.\nPress Space or click to launch.")
+	_hud.show_message("Re-Jardinians!", "Press Space or click to launch.")
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -132,7 +133,7 @@ func _on_brick_destroyed(brick: Brick) -> void:
 		return
 	if session.state == GameSession.State.WON:
 		_ball.stop()
-		_show_end_message("Garden cleared!", "Final score: %d\nPress Space or click to play again." % session.score)
+		_show_end_message("Level cleared!", "Final score: %d\nPress Space or click to play again." % session.score)
 
 
 func _on_ball_lost() -> void:

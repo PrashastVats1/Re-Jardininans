@@ -81,57 +81,63 @@ func _test_scene_uses_playfield_size() -> void:
 
 	var background := game.get_node("Background")
 	check(not "playfield_size" in background, "background has no separate playfield size")
+	check_equal(background.get("color"), Color.BLACK, "arena background is solid black")
+	check_approx(background.call("get_top"), playfield.ceiling_y, "black starts at the ceiling, leaving the strip above it to the frame")
 
 	# HUD positions are in design-canvas units (the layer offset is applied separately).
-	var score := game.get_node("Hud/Frame/ScoreLabel") as Control
-	var controls := game.get_node("Hud/Frame/ControlsLabel") as Control
-	var lives := game.get_node("Hud/Frame/LivesLabel") as Control
+	var controls := game.get_node("Hud/Frame/ControlsLabel") as Label
 	var message := game.get_node("Hud/Frame/MessagePanel") as Control
-	check_equal((game.get_node("Hud/Frame") as Control).get_rect(), Rect2(Vector2.ZERO, size), "HUD frame covers exactly the arena")
-	check_approx(score.get_global_rect().position.x, 24.0, "score label is 24 px from the arena's left edge")
-	check_approx(lives.get_global_rect().end.x, size.x - 24.0, "lives label is 24 px from the arena's right edge")
-	check_approx(controls.get_global_rect().get_center().x, size.x * 0.5, "controls hint is centered over the arena")
-	check_approx(message.get_global_rect().get_center().x, size.x * 0.5, "message panel is centered over the arena")
 	var pause_panel := game.get_node("Hud/Frame/PausePanel") as Control
-	check_approx(pause_panel.get_global_rect().get_center().x, size.x * 0.5, "pause panel is centered over the arena")
+	var sidebar := game.get_node("Hud/Sidebar") as Control
 	var arena_rect := Playfield.get_rect()
-	var all_in_arena := true
-	var too_wide: PackedStringArray = []
-	(score as Label).text = "Score: 999999"
-	for label: Label in [score, controls, lives]:
-		all_in_arena = all_in_arena and arena_rect.encloses(label.get_global_rect())
-		if label.get_minimum_size().x > label.size.x + 0.01:
-			too_wide.append("%s needs %.0f, has %.0f" % [label.name, label.get_minimum_size().x, label.size.x])
-	check(all_in_arena and arena_rect.encloses(message.get_global_rect()) and arena_rect.encloses(pause_panel.get_global_rect()),
-			"HUD stays over the arena, out of the sidebar column")
-	check(too_wide.is_empty(), "HUD label text fits its box, score up to 6 digits %s" % [too_wide])
-	check(score.get_global_rect().end.x <= controls.get_global_rect().position.x + 0.01
-			and controls.get_global_rect().end.x <= lives.get_global_rect().position.x + 0.01,
-			"HUD labels do not overlap")
+	check_equal((game.get_node("Hud/Frame") as Control).get_rect(), arena_rect, "HUD frame covers exactly the arena")
+	check_approx(controls.get_global_rect().get_center().x, size.x * 0.5, "controls hint is centered over the arena")
+	check(controls.get_global_rect().end.y <= playfield.ceiling_y, "controls hint sits in the strip above the ceiling")
+	check(controls.get_minimum_size().x <= controls.size.x + 0.01, "controls hint text fits its box")
+	check_approx(message.get_global_rect().get_center().x, size.x * 0.5, "message panel is centered over the arena")
+	check_approx(pause_panel.get_global_rect().get_center().x, size.x * 0.5, "pause panel is centered over the arena")
+	check(arena_rect.encloses(controls.get_global_rect()) and arena_rect.encloses(message.get_global_rect())
+			and arena_rect.encloses(pause_panel.get_global_rect()), "arena overlays stay over the arena, out of the sidebar column")
+	check_equal(sidebar.get_global_rect(), Rect2(size.x, 0.0, GameLayout.SIDEBAR_WIDTH, size.y),
+			"sidebar fills the column right of the arena")
+	check_equal(sidebar.get_global_rect().end, GameLayout.get_design_size(), "sidebar ends at the design canvas's bottom-right corner")
+
+	var catching_mouse: PackedStringArray = []
+	for root: Node in [game.get_node("Hud"), game.get_node("Backdrop")]:
+		for control: Control in _controls(root):
+			if control.mouse_filter != Control.MOUSE_FILTER_IGNORE:
+				catching_mouse.append(str(root.get_path_to(control)))
+	check(catching_mouse.is_empty(), "no HUD, sidebar or backdrop control intercepts the mouse %s" % [catching_mouse])
 
 	if DisplayServer.get_name() != "headless":
-		await _check_background_fills_playfield(size)
-		await _check_sidebar_column_is_free(size)
+		await _check_rendered_regions(size, playfield.ceiling_y, (game.get_node("Backdrop/Fill") as ColorRect).color)
 
 	main.queue_free()
 	await tree.process_frame
 
 
-## Samples the rendered frame at the playfield's bottom corners, which only the
-## background's grass strip covers.
-func _check_background_fills_playfield(size: Vector2) -> void:
+## Empty arena spots render pure black; the strip above the ceiling and an
+## empty spot in the sidebar render the plain frame colour.
+func _check_rendered_regions(size: Vector2, ceiling_y: float, frame_color: Color) -> void:
 	await RenderingServer.frame_post_draw
 	await RenderingServer.frame_post_draw
 	var viewport := tree.root.get_viewport()
 	var image := viewport.get_texture().get_image()
 	var scale := Vector2(image.get_size()) / viewport.get_visible_rect().size
 	var to_screen := Transform2D(0.0, scale, 0.0, Vector2.ZERO) * viewport.get_canvas_transform()
-	var grass := Color(0.3, 0.58, 0.22)
-	for point: Vector2 in [Vector2(4.0, size.y - 6.0), Vector2(size.x - 4.0, size.y - 6.0)]:
-		var pixel := Vector2i((to_screen * point).floor())
-		var color := image.get_pixelv(pixel)
-		check(absf(color.r - grass.r) < 0.06 and absf(color.g - grass.g) < 0.06 and absf(color.b - grass.b) < 0.06,
-				"background grass reaches playfield corner %s (got %s)" % [point, color])
+	var expectations: Dictionary = {
+		Vector2(4.0, size.y - 4.0): Color.BLACK,
+		Vector2(size.x - 4.0, size.y - 4.0): Color.BLACK,
+		Vector2(20.0, ceiling_y + 4.0): Color.BLACK,
+		Vector2(size.x * 0.5, 320.0): Color.BLACK,
+		Vector2(8.0, ceiling_y * 0.5): frame_color,
+		Vector2(size.x + GameLayout.SIDEBAR_WIDTH - 8.0, size.y - 8.0): frame_color,
+	}
+	for point: Vector2 in expectations:
+		var color := image.get_pixelv(Vector2i((to_screen * point).floor()))
+		var expected: Color = expectations[point]
+		check(absf(color.r - expected.r) < 0.03 and absf(color.g - expected.g) < 0.03 and absf(color.b - expected.b) < 0.03,
+				"rendered %s is %s (got %s)" % [point, "black" if expected == Color.BLACK else "the frame colour", color])
 
 
 func _wall_rect(game: Game, wall_name: String) -> Rect2:
@@ -149,22 +155,10 @@ func _files(dir_path: String) -> PackedStringArray:
 	return files
 
 
-## The sidebar column right of the arena shows only the backdrop for now: no
-## sky, bricks, paddle or HUD is drawn there.
-func _check_sidebar_column_is_free(size: Vector2) -> void:
-	var viewport := tree.root.get_viewport()
-	var image := viewport.get_texture().get_image()
-	var scale := Vector2(image.get_size()) / viewport.get_visible_rect().size
-	var to_screen := Transform2D(0.0, scale, 0.0, Vector2.ZERO) * viewport.get_canvas_transform()
-	var backdrop := preload("res://gameplay/garden_backdrop.gd").new() as Control
-	var allowed: Array[Color] = [backdrop.base_color, backdrop.leaf_color, backdrop.flower_color]
-	backdrop.free()
-	var bad: PackedStringArray = []
-	for point: Vector2 in [Vector2(size.x + 8.0, 30.0), Vector2(size.x + 160.0, 360.0), Vector2(size.x + 300.0, size.y - 10.0)]:
-		var color := image.get_pixelv(Vector2i((to_screen * point).floor()))
-		var matches := false
-		for expected: Color in allowed:
-			matches = matches or (absf(color.r - expected.r) < 0.05 and absf(color.g - expected.g) < 0.05 and absf(color.b - expected.b) < 0.05)
-		if not matches:
-			bad.append("%s=%s" % [point, color])
-	check(bad.is_empty(), "sidebar column shows only the backdrop %s" % [bad])
+func _controls(node: Node) -> Array[Control]:
+	var found: Array[Control] = []
+	for child: Node in node.get_children():
+		if child is Control:
+			found.append(child as Control)
+		found.append_array(_controls(child))
+	return found

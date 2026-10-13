@@ -67,6 +67,8 @@ func _test_autoplay_reaches_victory() -> void:
 	check(not tree.paused, "pause is ignored after victory")
 	check_equal(game.session.score, score_at_win, "score is frozen after victory")
 	check_equal(game.session.state, GameSession.State.WON, "state stays WON")
+	check_equal(_sidebar_text(game, "%ScoreValue"), str(EXPECTED_FULL_SCORE), "sidebar shows the final score after victory")
+	check_equal(_sidebar_text(game, "%LivesValue"), str(game.session.lives), "sidebar shows the remaining lives after victory")
 	await _end_game(game)
 
 
@@ -94,6 +96,8 @@ func _test_losing_all_lives_ends_game() -> void:
 		await tree.physics_frame
 	check_equal(game.session.state, GameSession.State.GAME_OVER, "state stays GAME_OVER")
 	check_equal(game.session.score, score_at_end, "score is frozen after game over")
+	check_equal(_sidebar_text(game, "%LivesValue"), "0", "sidebar shows 0 lives at game over")
+	check_equal(_sidebar_text(game, "%ScoreValue"), str(score_at_end), "sidebar shows the final score at game over")
 	await _end_game(game)
 
 
@@ -128,3 +132,7 @@ func _press(action: String) -> void:
 	release.action = action
 	release.pressed = false
 	Input.parse_input_event(release)
+
+
+func _sidebar_text(game: Game, label_path: String) -> String:
+	return (game.get_node("Hud/Sidebar").get_node(label_path) as Label).text

@@ -1,8 +1,9 @@
 extends "res://tests/test_case.gd"
 ## Resizing the window only changes canvas offsets: walls, bricks, paddle and
 ## ball keep their arena coordinates (in the scene and in the physics server),
-## a moving ball keeps bouncing inside the arena across resizes, and the
-## backdrop fills the whole visible area.
+## a moving ball keeps bouncing inside the arena across resizes, the plain
+## backdrop fills the whole visible area, and the sidebar stays flush against
+## the arena's right edge.
 
 const MAIN_SCENE: PackedScene = preload("res://main.tscn")
 const SIZES: Array[Vector2i] = [
@@ -21,7 +22,8 @@ func run() -> void:
 	var paddle := game.get_node("Playfield/Paddle") as Paddle
 	var ball := game.get_node("Playfield/Ball") as Ball
 	var playfield := game.get_node("Playfield") as Playfield
-	var backdrop := game.get_node("Backdrop/GardenBackdrop") as Control
+	var backdrop := game.get_node("Backdrop/Fill") as ColorRect
+	var sidebar := game.get_node("Hud/Sidebar") as Control
 	# The test steers the paddle under the ball so no life is lost.
 	paddle.set_physics_process(false)
 	await tree.physics_frame
@@ -53,8 +55,12 @@ func run() -> void:
 		check_equal((game.get_node("Hud") as CanvasLayer).offset, offset, "%s HUD offset applied in the same frame" % label)
 		await tree.process_frame
 		check_equal(backdrop.get_global_rect(), Rect2(Vector2.ZERO, visible), "%s backdrop fills the visible area" % label)
-		if DisplayServer.get_name() != "headless" and offset != Vector2.ZERO:
-			await _check_backdrop_pixels(offset, label)
+		var arena_right_on_screen := tree.root.get_canvas_transform() * Vector2(arena.x, 0.0)
+		check_equal(sidebar.get_global_transform_with_canvas().origin, arena_right_on_screen,
+				"%s sidebar's left edge is on the arena's right edge on screen" % label)
+		check_equal(sidebar.size, Vector2(GameLayout.SIDEBAR_WIDTH, arena.y), "%s sidebar keeps its size" % label)
+		if DisplayServer.get_name() != "headless":
+			await _check_frame_pixels(offset, backdrop.color, label)
 
 		for frame: int in FRAMES_PER_SIZE:
 			paddle.position.x = clampf(ball.position.x, paddle.get_half_width(), arena.x - paddle.get_half_width())
@@ -107,30 +113,29 @@ func _positions(game: Game) -> Dictionary:
 	return positions
 
 
-## The margins outside the design canvas show the hedge backdrop, including
-## right next to the arena's bottom corner where the background hills overhang.
-func _check_backdrop_pixels(offset: Vector2, label: String) -> void:
+## The margins outside the design canvas show the plain backdrop colour, and
+## on either side of the arena's right edge the pixels are black arena and the
+## sidebar divider, so the world and the HUD layer line up exactly.
+func _check_frame_pixels(offset: Vector2, frame_color: Color, label: String) -> void:
 	await RenderingServer.frame_post_draw
 	var viewport := tree.root.get_viewport()
 	var image := viewport.get_texture().get_image()
 	var scale := Vector2(image.get_size()) / viewport.get_visible_rect().size
 	var design := GameLayout.get_design_size()
-	var points: Array[Vector2] = []
+	var arena := Playfield.get_size()
+	var divider := (tree.root.find_child("Divider", true, false) as ColorRect).color
+	var expectations: Dictionary = {
+		offset + Vector2(arena.x - 3.0, design.y * 0.5): Color.BLACK,
+		offset + Vector2(arena.x + 1.0, design.y * 0.5): divider,
+	}
 	if offset.x > 0.0:
-		points = [Vector2(offset.x * 0.5, offset.y + design.y * 0.5), Vector2(offset.x - 3.0, offset.y + design.y - 30.0)]
-	else:
-		points = [Vector2(design.x * 0.5, offset.y * 0.5), Vector2(design.x * 0.18, offset.y + design.y + 3.0)]
-	var backdrop := game_backdrop_colors()
-	for point: Vector2 in points:
+		expectations[Vector2(offset.x * 0.5, offset.y + design.y * 0.5)] = frame_color
+		expectations[Vector2(offset.x - 3.0, offset.y + design.y - 30.0)] = frame_color
+	if offset.y > 0.0:
+		expectations[Vector2(design.x * 0.5, offset.y * 0.5)] = frame_color
+		expectations[Vector2(design.x * 0.18, offset.y + design.y + 3.0)] = frame_color
+	for point: Vector2 in expectations:
 		var color := image.get_pixelv(Vector2i((point * scale).floor()))
-		var matches := false
-		for expected: Color in backdrop:
-			matches = matches or (absf(color.r - expected.r) < 0.05 and absf(color.g - expected.g) < 0.05 and absf(color.b - expected.b) < 0.05)
-		check(matches, "%s margin at %s shows the backdrop (got %s)" % [label, point, color])
-
-
-func game_backdrop_colors() -> Array[Color]:
-	var backdrop := preload("res://gameplay/garden_backdrop.gd").new() as Control
-	var colors: Array[Color] = [backdrop.base_color, backdrop.leaf_color, backdrop.flower_color]
-	backdrop.free()
-	return colors
+		var expected: Color = expectations[point]
+		check(absf(color.r - expected.r) < 0.05 and absf(color.g - expected.g) < 0.05 and absf(color.b - expected.b) < 0.05,
+				"%s screen point %s shows %s (got %s)" % [label, point, expected, color])

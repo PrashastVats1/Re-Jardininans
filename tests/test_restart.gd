@@ -93,6 +93,14 @@ func _restart_with(restart_event: InputEvent, game: Game, label: String) -> void
 	check((new_game.get_node("Playfield/Ball") as Ball).is_attached(), "[%s] ball reset onto the paddle" % label)
 	check_approx((new_game.get_node("Playfield/Paddle") as Node2D).position.x, Playfield.get_size().x * 0.5, "[%s] paddle reset to center" % label)
 	check(not tree.paused, "[%s] tree is not paused after restart" % label)
+	var sidebar := new_game.get_node("Hud/Sidebar")
+	check((sidebar.get_node("%ScoreValue") as Label).text == "0" and (sidebar.get_node("%LivesValue") as Label).text == "3",
+			"[%s] sidebar shows the reset score and lives" % label)
+	var hud := new_game.get_node("Hud")
+	check((hud.get_node("%MessagePanel") as Control).visible
+			and (hud.get_node("%MessageTitle") as Label).text == "Re-Jardinians!"
+			and (hud.get_node("%MessageBody") as Label).text == "Press Space or click to launch.",
+			"[%s] restarted game shows the start message" % label)
 
 
 func _load_main_as_current_scene() -> Game:

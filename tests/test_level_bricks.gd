@@ -5,6 +5,7 @@ extends "res://tests/test_case.gd"
 
 const MAIN_SCENE: PackedScene = preload("res://main.tscn")
 const TEST_LEVEL_PATH: String = "res://data/levels/test_level.tres"
+const LEVELS_DIR: String = "res://data/levels"
 const EXPECTED_COUNTS: Dictionary = {
 	"Clay pot": 7,
 	"Red bloom": 11,
@@ -17,6 +18,7 @@ const EXPECTED_COUNTS: Dictionary = {
 func run() -> void:
 	_test_no_untyped_literal_defaults_on_typed_array_exports()
 	_test_level_file_keeps_rows()
+	_test_brick_colors_read_on_black()
 	await _test_spawned_bricks()
 	await _test_level_fits_arena_and_is_reachable()
 
@@ -37,6 +39,40 @@ func _test_no_untyped_literal_defaults_on_typed_array_exports() -> void:
 func _test_level_file_keeps_rows() -> void:
 	var text := FileAccess.get_file_as_string(TEST_LEVEL_PATH)
 	check(text.contains("rows = PackedStringArray(\""), "test_level.tres stores its brick rows on disk")
+
+
+## Bricks are plain coloured blocks on a black arena, so their colour is what
+## tells them apart: every type in every level must contrast strongly with
+## black (WCAG ratio >= 4.5) and differ clearly from the other types.
+func _test_brick_colors_read_on_black() -> void:
+	var types: Array[BrickType] = []
+	for file: String in DirAccess.get_files_at(LEVELS_DIR):
+		var level := load(LEVELS_DIR.path_join(file)) as LevelData
+		if level == null:
+			continue
+		for symbol: String in level.legend:
+			var brick_type := level.get_brick_type(symbol)
+			if brick_type != null and not types.has(brick_type):
+				types.append(brick_type)
+	check(not types.is_empty(), "levels define brick types")
+	var low_contrast: PackedStringArray = []
+	var look_alike: PackedStringArray = []
+	for i: int in types.size():
+		var ratio := (_luminance(types[i].color) + 0.05) / 0.05
+		if ratio < 4.5:
+			low_contrast.append("%s %.1f:1" % [types[i].display_name, ratio])
+		for j: int in range(i + 1, types.size()):
+			var a := types[i].color
+			var b := types[j].color
+			if Vector3(a.r - b.r, a.g - b.g, a.b - b.b).length() < 0.15:
+				look_alike.append("%s/%s" % [types[i].display_name, types[j].display_name])
+	check(low_contrast.is_empty(), "every brick colour contrasts with the black arena %s" % [low_contrast])
+	check(look_alike.is_empty(), "no two brick types share a look-alike colour %s" % [look_alike])
+
+
+func _luminance(color: Color) -> float:
+	var linear := color.srgb_to_linear()
+	return 0.2126 * linear.r + 0.7152 * linear.g + 0.0722 * linear.b
 
 
 func _test_spawned_bricks() -> void:
@@ -87,8 +123,9 @@ func _test_spawned_bricks() -> void:
 	await tree.process_frame
 
 
-## Samples the rendered frame at brick centers (offset to avoid the flower motif)
-## and at an empty sky spot, so a brick that exists but isn't drawn fails.
+## Samples the rendered frame inside each brick's flat fill (clear of the top
+## highlight and the outline) and at an empty arena spot, so a brick that
+## exists but isn't drawn fails.
 func _check_rendered_pixels(bricks: Array[Brick]) -> void:
 	await RenderingServer.frame_post_draw
 	await RenderingServer.frame_post_draw
@@ -111,9 +148,8 @@ func _check_rendered_pixels(bricks: Array[Brick]) -> void:
 	check(sampled == bricks.size(), "every brick center is on screen (%d/%d)" % [sampled, bricks.size()])
 	check(matched == sampled and sampled > 0, "rendered pixels match brick colors at %d/%d bricks" % [matched, sampled])
 
-	var sky := Vector2i((to_screen * Vector2(Playfield.get_size().x * 0.5, 320.0)).round())
-	var sky_color := image.get_pixelv(sky)
-	check(not _colors_close(sky_color, bricks[0].brick_type.color, 0.08), "empty sky below the bricks is not brick-colored")
+	var empty := Vector2i((to_screen * Vector2(Playfield.get_size().x * 0.5, 320.0)).round())
+	check(_colors_close(image.get_pixelv(empty), Color.BLACK, 0.03), "empty arena below the bricks is black, not brick-colored")
 
 
 ## The level must fit the arena with ball-sized gaps around the grid, and every

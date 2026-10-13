@@ -59,11 +59,5 @@ func _draw() -> void:
 		draw_polyline(PackedVector2Array([Vector2(14.0, -9.0), Vector2(20.0, 2.0), Vector2(28.0, 6.0)]), crack_color, 2.0, true)
 		return
 
-	var petal_color := color.lightened(0.55)
-	for i: int in 5:
-		var angle := TAU * float(i) / 5.0 - PI * 0.5
-		draw_circle(Vector2.from_angle(angle) * 5.0, 4.0, petal_color, true, -1.0, true)
-	draw_circle(Vector2.ZERO, 3.0, Color(1.0, 0.92, 0.45), true, -1.0, true)
-
 	if hit_points < brick_type.hit_points:
 		draw_polyline(PackedVector2Array([Vector2(-30.0, -10.0), Vector2(-18.0, -2.0), Vector2(-24.0, 6.0), Vector2(-12.0, 12.0)]), color.darkened(0.55), 2.0, true)
