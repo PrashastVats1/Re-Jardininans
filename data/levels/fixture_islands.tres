@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="LevelData" format=3]
+
+[ext_resource type="Script" uid="uid://bdiuqpu7f0bwf" path="res://gameplay/resources/level_data.gd" id="1_level"]
+[ext_resource type="Resource" path="res://data/bricks/blue_bloom.tres" id="2_blue"]
+[ext_resource type="Resource" path="res://data/bricks/clay_pot.tres" id="3_pot"]
+[ext_resource type="Resource" path="res://data/bricks/yellow_bloom.tres" id="4_yellow"]
+[ext_resource type="Resource" path="res://data/bricks/garden_stone.tres" id="5_stone"]
+
+[resource]
+script = ExtResource("1_level")
+display_name = "Fixture Islands"
+rows = PackedStringArray("BBB...BBB", "BPB...BPB", "BBB.Y.BBB", "...YYY...", "S..YPY..S", "...YYY...", "..S...S..")
+legend = {
+"B": ExtResource("2_blue"),
+"P": ExtResource("3_pot"),
+"S": ExtResource("5_stone"),
+"Y": ExtResource("4_yellow")
+}

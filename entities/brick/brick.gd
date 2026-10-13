@@ -4,7 +4,7 @@ extends StaticBody2D
 
 signal destroyed(brick: Brick)
 
-const SIZE: Vector2 = Vector2(76.0, 28.0)
+const SIZE: Vector2 = LevelGrid.BRICK_SIZE
 
 var brick_type: BrickType
 var hit_points: int = 1

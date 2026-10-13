@@ -45,6 +45,9 @@ window (a game window opens briefly):
 godot --path . --fixed-fps 60 --disable-vsync --script res://tests/run_tests.gd
 ```
 
+Some tests deliberately load invalid levels, so the output includes engine
+errors; each such test first prints a line saying how many errors to expect.
+
 If you add or rename scripts, run `godot --headless --path . --import` once (or
 open the editor) so new `class_name` types are registered before testing.
 
@@ -70,9 +73,7 @@ open the editor) so new `class_name` types are registered before testing.
   score and lives (from `GameSession`), level name (from the level's
   `LevelData`), then player name, high score and most levels in a row. Player
   records are not stored yet, so those show "—" placeholders.
-- Test level (`data/levels/test_level.tres`): 11 columns × 5 rows, 40
-  destructible bricks plus 2 stones, leaving 40 px between the grid and each
-  side wall.
+- Default level: Test Garden (see [Levels](#levels)).
 - Minimum window size: 960×540 (set at startup)
 - 2D physics interpolation enabled, physics at the default 60 ticks/s
 - Frame rate capped at 60 FPS (`application/run/max_fps`) for even frame
@@ -82,6 +83,60 @@ open the editor) so new `class_name` types are registered before testing.
   off the arena or leaves the window, the paddle finishes its last move and
   then stays put; a movement key or losing focus stops it at once)
 - 2D physics layers: `world`, `paddle`, `ball`, `bricks`, `killzone`
+
+## Levels
+
+The game currently has a single playable level, **Test Garden**
+(`data/levels/test_level.tres`: 11 columns × 5 rows, 40 destructible bricks plus
+2 stones). It is the only entry in `data/level_list.tres`. By default the
+shipped scene plays the first level in that list, but a level assigned
+directly to `Game.level` takes precedence over the list. The planned 64-level
+campaign (Level 1 being the tutorial) does not exist yet.
+
+`data/levels/fixture_islands.tres` (**Fixture Islands**, 9 columns × 7 rows)
+is a test fixture, not a campaign level: it is deliberately not in the level
+list, so the game never loads it. It exists so the level tests run against
+more than one shape.
+
+### Level format
+
+A level is a `LevelData` resource (`gameplay/resources/level_data.gd`):
+
+- `display_name`: shown in the sidebar.
+- `rows`: one string per row of bricks, top to bottom, one character per
+  column. Every row must have the same width. `.` or a space is an empty cell.
+- `legend`: maps each brick character to a `BrickType`. Every character used in
+  `rows` must be in the legend, every legend entry must be used, and `.` and
+  space cannot be keys.
+
+Brick types are shared resources in `data/bricks/` (`BrickType`: display name,
+colour, hit points, points, destructible), so every level uses the same bricks:
+red, yellow and blue blooms (1 hit, 50 points), the clay pot (2 hits,
+120 points) and the indestructible garden stone (0 points). A level needs at
+least one destructible brick; stones are allowed.
+
+### Grid fit
+
+Bricks are 76×28 px on an 80×32 px cell, laid out by `LevelGrid`
+(`gameplay/level_grid.gd`). The grid is centred horizontally and starts at
+y = 104. In the 960×720 arena:
+
+- There must be at least one ball width (20 px) between the grid and each side
+  wall, which allows at most 11 columns.
+- There must be at least 200 px of open space between the bottom of the grid and
+  the top of the paddle, which allows at most 10 rows.
+
+Both limits are worked out from the arena, ball and paddle sizes, not
+hardcoded.
+
+### Validation
+
+When a level loads, `LevelValidator` checks its structure (the rules above) and
+that it fits the arena. If anything is wrong, the game logs each problem as an
+error, shows "Level unavailable" and will not launch the ball. Checking that
+every brick can be reached, and that the scripted autoplay can clear the
+level, is done only by the tests. They run these checks, plus spawning,
+scoring and grid placement, on every `.tres` file in `data/levels/`.
 
 ## Folder layout
 

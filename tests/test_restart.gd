@@ -4,6 +4,7 @@ extends "res://tests/test_case.gd"
 ## Engine errors are captured so the old "set_input_as_handled on a null value"
 ## script error fails the test instead of only being printed.
 
+const LevelFacts := preload("res://tests/level_facts.gd")
 const MAIN_SCENE: PackedScene = preload("res://main.tscn")
 
 
@@ -72,6 +73,8 @@ func _test_restart_ignored_during_delay() -> void:
 
 func _restart_with(restart_event: InputEvent, game: Game, label: String) -> void:
 	var old_main := tree.current_scene
+	var level := game.level
+	var lives := game.starting_lives
 	_log.take()
 	OS.delay_msec(Game.RESTART_DELAY_MSEC + 50)
 	_send(restart_event)
@@ -87,14 +90,15 @@ func _restart_with(restart_event: InputEvent, game: Game, label: String) -> void
 	var new_game := new_main.get_node("Game") as Game
 	check_equal(new_game.session.state, GameSession.State.READY, "[%s] restarted game is READY" % label)
 	check_equal(new_game.session.score, 0, "[%s] score reset to 0" % label)
-	check_equal(new_game.session.lives, 3, "[%s] lives reset to 3" % label)
-	check_equal(new_game.session.bricks_remaining, 40, "[%s] 40 destructible bricks again" % label)
-	check_equal(new_game.get_node("Playfield/Bricks").get_child_count(), 42, "[%s] full brick layout respawned" % label)
+	check(new_game.level == level, "[%s] the same level is reloaded" % label)
+	check_equal(new_game.session.lives, lives, "[%s] lives reset to the starting %d" % [label, lives])
+	check_equal(new_game.session.bricks_remaining, LevelFacts.destructible_count(level), "[%s] every destructible brick is back" % label)
+	check_equal(new_game.get_node("Playfield/Bricks").get_child_count(), LevelFacts.brick_count(level), "[%s] full brick layout respawned" % label)
 	check((new_game.get_node("Playfield/Ball") as Ball).is_attached(), "[%s] ball reset onto the paddle" % label)
 	check_approx((new_game.get_node("Playfield/Paddle") as Node2D).position.x, Playfield.get_size().x * 0.5, "[%s] paddle reset to center" % label)
 	check(not tree.paused, "[%s] tree is not paused after restart" % label)
 	var sidebar := new_game.get_node("Hud/Sidebar")
-	check((sidebar.get_node("%ScoreValue") as Label).text == "0" and (sidebar.get_node("%LivesValue") as Label).text == "3",
+	check((sidebar.get_node("%ScoreValue") as Label).text == "0" and (sidebar.get_node("%LivesValue") as Label).text == str(lives),
 			"[%s] sidebar shows the reset score and lives" % label)
 	var hud := new_game.get_node("Hud")
 	check((hud.get_node("%MessagePanel") as Control).visible

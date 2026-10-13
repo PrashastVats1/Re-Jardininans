@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="BrickType" format=3]
+
+[ext_resource type="Script" uid="uid://c73s4on58ph1j" path="res://gameplay/resources/brick_type.gd" id="1_brick"]
+
+[resource]
+script = ExtResource("1_brick")
+display_name = "Clay pot"
+color = Color(0.82, 0.45, 0.27, 1)
+hit_points = 2
+points = 120

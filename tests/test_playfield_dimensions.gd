@@ -65,7 +65,7 @@ func _test_scene_uses_playfield_size() -> void:
 	check(top.position.x <= 0.0 and top.end.x >= size.x, "ceiling covers the full playfield width")
 
 	var paddle := game.get_node("Playfield/Paddle") as Paddle
-	check_equal(paddle.position, Vector2(size.x * 0.5, size.y - game.paddle_bottom_offset), "paddle starts centered near the bottom")
+	check_equal(paddle.position, Vector2(size.x * 0.5, LevelGrid.get_paddle_y()), "paddle starts centered near the bottom")
 	var ball := game.get_node("Playfield/Ball") as Ball
 	check_approx(ball.lost_below_y, size.y + ball.lost_margin, "ball is lost just below the playfield")
 	check_approx(ball.position.x, size.x * 0.5, "ball starts on the centered paddle")
