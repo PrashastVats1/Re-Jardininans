@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" path="res://gameplay/game.gd" id="1_game"]
 [ext_resource type="Resource" path="res://data/levels/test_level.tres" id="2_level"]
-[ext_resource type="Script" path="res://gameplay/garden_background.gd" id="3_background"]
+[ext_resource type="Script" path="res://gameplay/arena_background.gd" id="3_background"]
 [ext_resource type="PackedScene" path="res://entities/paddle/paddle.tscn" id="4_paddle"]
 [ext_resource type="PackedScene" path="res://entities/ball/ball.tscn" id="5_ball"]
 [ext_resource type="PackedScene" path="res://ui/hud/hud.tscn" id="6_hud"]
@@ -19,8 +19,22 @@ process_mode = 3
 script = ExtResource("1_game")
 level = ExtResource("2_level")
 
-[node name="Background" type="Node2D" parent="."]
+[node name="Backdrop" type="CanvasLayer" parent="."]
+layer = -1
+
+[node name="Fill" type="ColorRect" parent="Backdrop"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.08, 0.19, 0.1, 1)
+
+[node name="Background" type="Node2D" parent="." node_paths=PackedStringArray("playfield")]
 script = ExtResource("3_background")
+playfield = NodePath("../Playfield")
 
 [node name="Playfield" type="Node2D" parent="."]
 process_mode = 1

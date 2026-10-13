@@ -1,6 +1,7 @@
 extends "res://tests/test_case.gd"
-## The playfield size has one source (the project's base viewport size), and
-## the walls, paddle, ball, bricks, background and HUD are all derived from it.
+## The design canvas has one source (the project's base viewport size), the
+## arena size has one source (Playfield.get_size()), and the walls, paddle,
+## ball, bricks, background and HUD are all derived from them.
 
 const MAIN_SCENE: PackedScene = preload("res://main.tscn")
 const SCANNED_DIRS: PackedStringArray = ["res://gameplay", "res://entities", "res://ui", "res://data"]
@@ -13,15 +14,21 @@ func run() -> void:
 
 
 func _test_single_source_of_truth() -> void:
-	var size := Playfield.get_size()
-	check_equal(size, Vector2(1280.0, 720.0), "playfield is 1280x720")
-	check_equal(size, Vector2(
+	var design := GameLayout.get_design_size()
+	check_equal(design, Vector2(1280.0, 720.0), "design canvas is 1280x720")
+	check_equal(design, Vector2(
 			ProjectSettings.get_setting("display/window/size/viewport_width"),
 			ProjectSettings.get_setting("display/window/size/viewport_height")),
-			"playfield size comes from the project's viewport size")
-	check_equal(Playfield.get_rect(), Rect2(Vector2.ZERO, size), "playfield rect starts at the origin")
-	check_approx(size.x / size.y, 16.0 / 9.0, "playfield is 16:9")
-	check_equal(ProjectSettings.get_setting("display/window/stretch/aspect"), "keep", "16:9 is kept with letterboxing")
+			"design canvas comes from the project's viewport size")
+	check_approx(design.x / design.y, 16.0 / 9.0, "design canvas is 16:9")
+	check_equal(ProjectSettings.get_setting("display/window/stretch/mode"), "canvas_items", "canvas_items stretch")
+	check_equal(ProjectSettings.get_setting("display/window/stretch/aspect"), "expand", "expand aspect shows extra backdrop instead of bars")
+
+	var size := Playfield.get_size()
+	check_equal(size, Vector2(960.0, 720.0), "arena is 960x720")
+	check_equal(size, design - Vector2(GameLayout.SIDEBAR_WIDTH, 0.0), "arena is the design canvas minus the sidebar")
+	check_equal(GameLayout.SIDEBAR_WIDTH, 320.0, "sidebar column is 320 wide")
+	check_equal(Playfield.get_rect(), Rect2(Vector2.ZERO, size), "arena rect starts at the origin")
 
 
 func _test_no_hard_coded_playfield_numbers() -> void:
@@ -74,39 +81,63 @@ func _test_scene_uses_playfield_size() -> void:
 
 	var background := game.get_node("Background")
 	check(not "playfield_size" in background, "background has no separate playfield size")
+	check_equal(background.get("color"), Color.BLACK, "arena background is solid black")
+	check_approx(background.call("get_top"), playfield.ceiling_y, "black starts at the ceiling, leaving the strip above it to the frame")
 
-	var score := game.get_node("Hud/ScoreLabel") as Control
-	var controls := game.get_node("Hud/ControlsLabel") as Control
-	var lives := game.get_node("Hud/LivesLabel") as Control
-	var message := game.get_node("Hud/MessagePanel") as Control
-	check_approx(score.get_global_rect().position.x, 24.0, "score label is 24 px from the left edge")
-	check_approx(lives.get_global_rect().end.x, size.x - 24.0, "lives label is 24 px from the right edge")
-	check_approx(controls.get_global_rect().get_center().x, size.x * 0.5, "controls hint is centered")
-	check_approx(message.get_global_rect().get_center().x, size.x * 0.5, "message panel is centered")
-	check(score.get_global_rect().end.x <= controls.get_global_rect().position.x + 0.01
-			and controls.get_global_rect().end.x <= lives.get_global_rect().position.x + 0.01,
-			"HUD labels do not overlap")
+	# HUD positions are in design-canvas units (the layer offset is applied separately).
+	var controls := game.get_node("Hud/Frame/ControlsLabel") as Label
+	var message := game.get_node("Hud/Frame/MessagePanel") as Control
+	var pause_panel := game.get_node("Hud/Frame/PausePanel") as Control
+	var sidebar := game.get_node("Hud/Sidebar") as Control
+	var arena_rect := Playfield.get_rect()
+	check_equal((game.get_node("Hud/Frame") as Control).get_rect(), arena_rect, "HUD frame covers exactly the arena")
+	check_approx(controls.get_global_rect().get_center().x, size.x * 0.5, "controls hint is centered over the arena")
+	check(controls.get_global_rect().end.y <= playfield.ceiling_y, "controls hint sits in the strip above the ceiling")
+	check(controls.get_minimum_size().x <= controls.size.x + 0.01, "controls hint text fits its box")
+	check_approx(message.get_global_rect().get_center().x, size.x * 0.5, "message panel is centered over the arena")
+	check_approx(pause_panel.get_global_rect().get_center().x, size.x * 0.5, "pause panel is centered over the arena")
+	check(arena_rect.encloses(controls.get_global_rect()) and arena_rect.encloses(message.get_global_rect())
+			and arena_rect.encloses(pause_panel.get_global_rect()), "arena overlays stay over the arena, out of the sidebar column")
+	check_equal(sidebar.get_global_rect(), Rect2(size.x, 0.0, GameLayout.SIDEBAR_WIDTH, size.y),
+			"sidebar fills the column right of the arena")
+	check_equal(sidebar.get_global_rect().end, GameLayout.get_design_size(), "sidebar ends at the design canvas's bottom-right corner")
+
+	var catching_mouse: PackedStringArray = []
+	for root: Node in [game.get_node("Hud"), game.get_node("Backdrop")]:
+		for control: Control in _controls(root):
+			if control.mouse_filter != Control.MOUSE_FILTER_IGNORE:
+				catching_mouse.append(str(root.get_path_to(control)))
+	check(catching_mouse.is_empty(), "no HUD, sidebar or backdrop control intercepts the mouse %s" % [catching_mouse])
 
 	if DisplayServer.get_name() != "headless":
-		await _check_background_fills_playfield(size)
+		await _check_rendered_regions(size, playfield.ceiling_y, (game.get_node("Backdrop/Fill") as ColorRect).color)
 
 	main.queue_free()
 	await tree.process_frame
 
 
-## Samples the rendered frame at the playfield's bottom corners, which only the
-## background's grass strip covers.
-func _check_background_fills_playfield(size: Vector2) -> void:
+## Empty arena spots render pure black; the strip above the ceiling and an
+## empty spot in the sidebar render the plain frame colour.
+func _check_rendered_regions(size: Vector2, ceiling_y: float, frame_color: Color) -> void:
 	await RenderingServer.frame_post_draw
 	await RenderingServer.frame_post_draw
-	var image := tree.root.get_texture().get_image()
-	var scale := Vector2(image.get_size()) / size
-	var grass := Color(0.3, 0.58, 0.22)
-	for point: Vector2 in [Vector2(4.0, size.y - 6.0), Vector2(size.x - 4.0, size.y - 6.0)]:
-		var pixel := Vector2i((point * scale).floor())
-		var color := image.get_pixelv(pixel)
-		check(absf(color.r - grass.r) < 0.06 and absf(color.g - grass.g) < 0.06 and absf(color.b - grass.b) < 0.06,
-				"background grass reaches playfield corner %s (got %s)" % [point, color])
+	var viewport := tree.root.get_viewport()
+	var image := viewport.get_texture().get_image()
+	var scale := Vector2(image.get_size()) / viewport.get_visible_rect().size
+	var to_screen := Transform2D(0.0, scale, 0.0, Vector2.ZERO) * viewport.get_canvas_transform()
+	var expectations: Dictionary = {
+		Vector2(4.0, size.y - 4.0): Color.BLACK,
+		Vector2(size.x - 4.0, size.y - 4.0): Color.BLACK,
+		Vector2(20.0, ceiling_y + 4.0): Color.BLACK,
+		Vector2(size.x * 0.5, 320.0): Color.BLACK,
+		Vector2(8.0, ceiling_y * 0.5): frame_color,
+		Vector2(size.x + GameLayout.SIDEBAR_WIDTH - 8.0, size.y - 8.0): frame_color,
+	}
+	for point: Vector2 in expectations:
+		var color := image.get_pixelv(Vector2i((to_screen * point).floor()))
+		var expected: Color = expectations[point]
+		check(absf(color.r - expected.r) < 0.03 and absf(color.g - expected.g) < 0.03 and absf(color.b - expected.b) < 0.03,
+				"rendered %s is %s (got %s)" % [point, "black" if expected == Color.BLACK else "the frame colour", color])
 
 
 func _wall_rect(game: Game, wall_name: String) -> Rect2:
@@ -122,3 +153,12 @@ func _files(dir_path: String) -> PackedStringArray:
 	for sub: String in DirAccess.get_directories_at(dir_path):
 		files.append_array(_files(dir_path.path_join(sub)))
 	return files
+
+
+func _controls(node: Node) -> Array[Control]:
+	var found: Array[Control] = []
+	for child: Node in node.get_children():
+		if child is Control:
+			found.append(child as Control)
+		found.append_array(_controls(child))
+	return found

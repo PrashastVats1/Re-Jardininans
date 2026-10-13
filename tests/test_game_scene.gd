@@ -27,9 +27,9 @@ func run() -> void:
 		check(game.session != null, "game created a session")
 		check_equal(game.session.state, GameSession.State.READY, "game starts READY")
 		check_equal(game.session.lives, 3, "game starts with three lives")
-		check_equal(game.session.bricks_remaining, 52, "game counts 52 destructible bricks")
+		check_equal(game.session.bricks_remaining, 40, "game counts 40 destructible bricks")
 		var bricks := game.get_node("Playfield/Bricks")
-		check_equal(bricks.get_child_count(), 54, "54 bricks spawned (52 + 2 stones)")
+		check_equal(bricks.get_child_count(), 42, "42 bricks spawned (40 + 2 stones)")
 		var ball := game.get_node("Playfield/Ball") as Ball
 		check(ball.paddle != null, "ball is linked to the paddle")
 		check(ball.is_attached(), "ball starts attached to the paddle")

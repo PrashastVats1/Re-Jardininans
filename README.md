@@ -33,7 +33,10 @@ godot --headless --path . --fixed-fps 60 --script res://tests/run_tests.gd
 
 `--fixed-fps 60` makes each frame exactly one physics step, so the physics
 simulations run quickly and deterministically. The command exits with code 0
-when every check passes.
+when every check passes. A test script that fails to load, or does not finish
+within 120 seconds, is reported as a failure. To run only some scripts, add
+`-- --tests=res://tests/test_sidebar.gd,res://tests/test_messages.gd`
+(`--timeout=<seconds>` changes the time limit).
 
 The headless run skips the rendered-pixel brick check. To include it, run in a
 window (a game window opens briefly):
@@ -48,14 +51,36 @@ open the editor) so new `class_name` types are registered before testing.
 ## Project settings at a glance
 
 - Renderer: GL Compatibility
-- Logical resolution: 1280×720, landscape, fixed 16:9 playfield
-  (`canvas_items` stretch, `keep` aspect — letterboxed on other window shapes).
-  The project's viewport width/height are the single source of truth for the
-  playfield size; code reads them through `Playfield.get_size()`.
-- 2D physics interpolation enabled
+- Logical design canvas: 1280×720, landscape, `canvas_items` stretch with
+  `expand` aspect. The window scales the canvas uniformly (nothing is
+  stretched); on wider or taller windows the canvas is centered and the extra
+  space shows the plain dark-green backdrop instead of black bars. Code reads the
+  canvas size from the project's viewport width/height through
+  `GameLayout.get_design_size()`.
+- Gameplay arena: 960×720 on the left of the design canvas, in arena-local
+  coordinates, read through `Playfield.get_size()` (the design canvas minus
+  `GameLayout.SIDEBAR_WIDTH`). Resizing the window only offsets the canvas
+  transforms — the ball, paddle, bricks and walls never move.
+- Presentation is gameplay-first: the arena is solid black from the ceiling
+  down, with no scenery, so every gameplay object stays easy to pick out. The
+  strip above the ceiling (controls hint), the sidebar and any window margins
+  share one plain dark green (`Backdrop/Fill` in `gameplay/game.tscn`), which
+  keeps the arena's edges visible.
+- Sidebar (`ui/hud/sidebar.tscn`, the 320 px column on the right): title,
+  score and lives (from `GameSession`), level name (from the level's
+  `LevelData`), then player name, high score and most levels in a row. Player
+  records are not stored yet, so those show "—" placeholders.
+- Test level (`data/levels/test_level.tres`): 11 columns × 5 rows, 40
+  destructible bricks plus 2 stones, leaving 40 px between the grid and each
+  side wall.
+- Minimum window size: 960×540 (set at startup)
+- 2D physics interpolation enabled, physics at the default 60 ticks/s
+- Frame rate capped at 60 FPS (`application/run/max_fps`) for even frame
+  pacing; vsync alone does not pace frames reliably on every Linux desktop
 - Input actions: `move_left`, `move_right`, `launch_ball`, `pause`
-  (moving the mouse inside the window steers the paddle; it stays put when the
-  pointer leaves the window)
+  (moving the mouse over the arena steers the paddle; when the pointer moves
+  off the arena or leaves the window, the paddle finishes its last move and
+  then stays put; a movement key or losing focus stops it at once)
 - 2D physics layers: `world`, `paddle`, `ball`, `bricks`, `killzone`
 
 ## Folder layout

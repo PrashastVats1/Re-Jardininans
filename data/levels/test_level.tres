@@ -35,7 +35,7 @@ color = Color(0.98, 0.78, 0.25, 1)
 [resource]
 script = ExtResource("1_level")
 display_name = "Test Garden"
-rows = PackedStringArray("..PPPPPPPPPP..", "RRRRRRRRRRRRRR", "YYYYYYYYYYYYYY", "BBBBBBBBBBBBBB", "...S......S...")
+rows = PackedStringArray("..PPPPPPP..", "RRRRRRRRRRR", "YYYYYYYYYYY", "BBBBBBBBBBB", "..S.....S..")
 legend = {
 "B": SubResource("Resource_blue"),
 "P": SubResource("Resource_pot"),

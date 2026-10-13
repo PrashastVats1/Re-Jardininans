@@ -29,6 +29,10 @@ var _restarting: bool = false
 
 
 func _ready() -> void:
+	get_window().min_size = GameLayout.MIN_WINDOW_SIZE
+	get_viewport().size_changed.connect(_apply_layout)
+	_apply_layout()
+
 	session = GameSession.new(starting_lives, _build_level())
 	session.score_changed.connect(_hud.set_score)
 	session.lives_changed.connect(_hud.set_lives)
@@ -36,11 +40,12 @@ func _ready() -> void:
 
 	_hud.set_score(session.score)
 	_hud.set_lives(session.lives)
+	_hud.set_level(level.display_name if level != null else "")
 	var playfield_size := Playfield.get_size()
 	_paddle.position = Vector2(playfield_size.x * 0.5, playfield_size.y - paddle_bottom_offset)
 	_paddle.reset_physics_interpolation()
 	_ball.attach_to_paddle()
-	_hud.show_message("Re-Jardinians!", "Clear every flower brick.\nPress Space or click to launch.")
+	_hud.show_message("Re-Jardinians!", "Press Space or click to launch.")
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -60,6 +65,16 @@ func _notification(what: int) -> void:
 		_toggle_pause()
 
 
+## Centers the design canvas in the visible area by offsetting only the canvas
+## transforms (world and HUD together), so physics bodies never move. Avoid a
+## Camera2D here: with physics interpolation it applies offsets a frame late.
+func _apply_layout() -> void:
+	var viewport := get_viewport()
+	var offset := GameLayout.get_offset(viewport.get_visible_rect().size)
+	viewport.canvas_transform = Transform2D(0.0, offset)
+	_hud.offset = offset
+
+
 ## Spawns bricks and returns how many are destructible.
 func _build_level() -> int:
 	if level == null:
@@ -70,7 +85,11 @@ func _build_level() -> int:
 
 	var cell := Brick.SIZE + brick_spacing
 	var columns := level.get_column_count()
-	var first_center := Vector2((Playfield.get_size().x - columns * cell.x) * 0.5, brick_area_top) + cell * 0.5
+	var arena_width := Playfield.get_size().x
+	if columns * cell.x > arena_width:
+		push_error("%s: %d columns need %d px but the arena is %d px wide; outer bricks would sit inside the walls."
+				% [level.resource_path, columns, columns * cell.x, arena_width])
+	var first_center := Vector2((arena_width - columns * cell.x) * 0.5, brick_area_top) + cell * 0.5
 	var destructible := 0
 	for row: int in level.rows.size():
 		var line := level.rows[row]
@@ -114,7 +133,7 @@ func _on_brick_destroyed(brick: Brick) -> void:
 		return
 	if session.state == GameSession.State.WON:
 		_ball.stop()
-		_show_end_message("Garden cleared!", "Final score: %d\nPress Space or click to play again." % session.score)
+		_show_end_message("Level cleared!", "Final score: %d\nPress Space or click to play again." % session.score)
 
 
 func _on_ball_lost() -> void:

@@ -1,9 +1,8 @@
 class_name Playfield
 extends Node2D
-## The play area. Its logical size is the project's base viewport size
-## (display/window/size/viewport_width and viewport_height in project.godot),
-## which is the single source of truth for playfield dimensions. Lays out the
-## boundary walls around that rectangle.
+## The play area, in arena-local coordinates starting at the origin. get_size()
+## is the single source of truth for its dimensions; the arena is placed at the
+## top-left of the design canvas. Lays out the boundary walls around it.
 
 const WALL_THICKNESS: float = 200.0
 
@@ -15,10 +14,9 @@ const WALL_THICKNESS: float = 200.0
 @onready var _top_wall: CollisionShape2D = $Walls/Top
 
 
+## The design canvas minus the sidebar on its right (960x720 for 1280x720).
 static func get_size() -> Vector2:
-	return Vector2(
-			ProjectSettings.get_setting("display/window/size/viewport_width"),
-			ProjectSettings.get_setting("display/window/size/viewport_height"))
+	return GameLayout.get_design_size() - Vector2(GameLayout.SIDEBAR_WIDTH, 0.0)
 
 
 static func get_rect() -> Rect2:

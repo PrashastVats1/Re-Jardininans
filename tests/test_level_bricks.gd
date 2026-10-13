@@ -5,11 +5,12 @@ extends "res://tests/test_case.gd"
 
 const MAIN_SCENE: PackedScene = preload("res://main.tscn")
 const TEST_LEVEL_PATH: String = "res://data/levels/test_level.tres"
+const LEVELS_DIR: String = "res://data/levels"
 const EXPECTED_COUNTS: Dictionary = {
-	"Clay pot": 10,
-	"Red bloom": 14,
-	"Yellow bloom": 14,
-	"Blue bloom": 14,
+	"Clay pot": 7,
+	"Red bloom": 11,
+	"Yellow bloom": 11,
+	"Blue bloom": 11,
 	"Garden stone": 2,
 }
 
@@ -17,7 +18,9 @@ const EXPECTED_COUNTS: Dictionary = {
 func run() -> void:
 	_test_no_untyped_literal_defaults_on_typed_array_exports()
 	_test_level_file_keeps_rows()
+	_test_brick_colors_read_on_black()
 	await _test_spawned_bricks()
+	await _test_level_fits_arena_and_is_reachable()
 
 
 ## The editor builds non-tool resources from export defaults; a bare [] default
@@ -36,6 +39,40 @@ func _test_no_untyped_literal_defaults_on_typed_array_exports() -> void:
 func _test_level_file_keeps_rows() -> void:
 	var text := FileAccess.get_file_as_string(TEST_LEVEL_PATH)
 	check(text.contains("rows = PackedStringArray(\""), "test_level.tres stores its brick rows on disk")
+
+
+## Bricks are plain coloured blocks on a black arena, so their colour is what
+## tells them apart: every type in every level must contrast strongly with
+## black (WCAG ratio >= 4.5) and differ clearly from the other types.
+func _test_brick_colors_read_on_black() -> void:
+	var types: Array[BrickType] = []
+	for file: String in DirAccess.get_files_at(LEVELS_DIR):
+		var level := load(LEVELS_DIR.path_join(file)) as LevelData
+		if level == null:
+			continue
+		for symbol: String in level.legend:
+			var brick_type := level.get_brick_type(symbol)
+			if brick_type != null and not types.has(brick_type):
+				types.append(brick_type)
+	check(not types.is_empty(), "levels define brick types")
+	var low_contrast: PackedStringArray = []
+	var look_alike: PackedStringArray = []
+	for i: int in types.size():
+		var ratio := (_luminance(types[i].color) + 0.05) / 0.05
+		if ratio < 4.5:
+			low_contrast.append("%s %.1f:1" % [types[i].display_name, ratio])
+		for j: int in range(i + 1, types.size()):
+			var a := types[i].color
+			var b := types[j].color
+			if Vector3(a.r - b.r, a.g - b.g, a.b - b.b).length() < 0.15:
+				look_alike.append("%s/%s" % [types[i].display_name, types[j].display_name])
+	check(low_contrast.is_empty(), "every brick colour contrasts with the black arena %s" % [low_contrast])
+	check(look_alike.is_empty(), "no two brick types share a look-alike colour %s" % [look_alike])
+
+
+func _luminance(color: Color) -> float:
+	var linear := color.srgb_to_linear()
+	return 0.2126 * linear.r + 0.7152 * linear.g + 0.0722 * linear.b
 
 
 func _test_spawned_bricks() -> void:
@@ -66,7 +103,7 @@ func _test_spawned_bricks() -> void:
 				and brick.scale.is_equal_approx(Vector2.ONE)
 		positions[brick.global_position.round()] = true
 
-	check_equal(bricks.size(), 54, "test level spawns 54 Brick nodes under Playfield/Bricks")
+	check_equal(bricks.size(), 42, "test level spawns 42 Brick nodes under Playfield/Bricks")
 	check(all_typed, "every brick has a BrickType")
 	check_equal(counts, EXPECTED_COUNTS, "brick types match the level legend")
 	check(all_inside, "every brick lies fully inside the playfield below the HUD bar")
@@ -86,14 +123,15 @@ func _test_spawned_bricks() -> void:
 	await tree.process_frame
 
 
-## Samples the rendered frame at brick centers (offset to avoid the flower motif)
-## and at an empty sky spot, so a brick that exists but isn't drawn fails.
+## Samples the rendered frame inside each brick's flat fill (clear of the top
+## highlight and the outline) and at an empty arena spot, so a brick that
+## exists but isn't drawn fails.
 func _check_rendered_pixels(bricks: Array[Brick]) -> void:
 	await RenderingServer.frame_post_draw
 	await RenderingServer.frame_post_draw
 	var viewport := tree.root.get_viewport()
 	var image := viewport.get_texture().get_image()
-	# The captured image covers only the 16:9 game area (no letterbox bars),
+	# The captured image covers the whole visible area (expand aspect, no bars),
 	# scaled to whatever size the window manager gave the window.
 	var scale := Vector2(image.get_size()) / viewport.get_visible_rect().size
 	var to_screen := Transform2D(0.0, scale, 0.0, Vector2.ZERO) * viewport.get_canvas_transform()
@@ -110,9 +148,74 @@ func _check_rendered_pixels(bricks: Array[Brick]) -> void:
 	check(sampled == bricks.size(), "every brick center is on screen (%d/%d)" % [sampled, bricks.size()])
 	check(matched == sampled and sampled > 0, "rendered pixels match brick colors at %d/%d bricks" % [matched, sampled])
 
-	var sky := Vector2i((to_screen * Vector2(Playfield.get_size().x * 0.5, 320.0)).round())
-	var sky_color := image.get_pixelv(sky)
-	check(not _colors_close(sky_color, bricks[0].brick_type.color, 0.08), "empty sky below the bricks is not brick-colored")
+	var empty := Vector2i((to_screen * Vector2(Playfield.get_size().x * 0.5, 320.0)).round())
+	check(_colors_close(image.get_pixelv(empty), Color.BLACK, 0.03), "empty arena below the bricks is black, not brick-colored")
+
+
+## The level must fit the arena with ball-sized gaps around the grid, and every
+## destructible brick must be reachable: peeling bricks from the open side
+## (stones never break) has to expose all of them.
+func _test_level_fits_arena_and_is_reachable() -> void:
+	var main := MAIN_SCENE.instantiate()
+	tree.root.add_child(main)
+	await tree.physics_frame
+	var game := main.get_node("Game") as Game
+	var level := game.level
+	var playfield := game.get_node("Playfield") as Playfield
+	var ball_diameter := (game.get_node("Playfield/Ball") as Ball).radius * 2.0
+	var arena := Playfield.get_size()
+	var cell := Brick.SIZE + game.brick_spacing
+	var columns := level.get_column_count()
+	var side_gap := (arena.x - columns * cell.x) * 0.5
+	var top_gap := game.brick_area_top - playfield.ceiling_y
+	var grid_bottom := game.brick_area_top + level.rows.size() * cell.y
+	var paddle_top := arena.y - game.paddle_bottom_offset - (game.get_node("Playfield/Paddle") as Paddle).size.y * 0.5
+
+	check_equal(columns, 11, "test level is 11 columns wide")
+	check(side_gap >= ball_diameter, "ball fits beside the grid (%.0f px gaps, ball %.0f px)" % [side_gap, ball_diameter])
+	check(top_gap >= ball_diameter, "ball fits between the ceiling and the top row (%.0f px)" % top_gap)
+	check(paddle_top - grid_bottom >= 200.0, "at least 200 px of open play space between bricks and paddle (%.0f px)" % [paddle_top - grid_bottom])
+
+	# Out-of-grid neighbours are open space only where the ball can get there.
+	var open := {}
+	for row: int in level.rows.size():
+		for column: int in columns:
+			open[Vector2i(column, row)] = false
+	var changed := true
+	while changed:
+		changed = false
+		for key: Vector2i in open:
+			if open[key] or _cell_type(level, key) != null and not _cell_type(level, key).destructible:
+				continue
+			for step: Vector2i in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]:
+				var next := key + step
+				var reachable: bool
+				if open.has(next):
+					reachable = open[next]
+				elif next.y >= level.rows.size():
+					reachable = true
+				elif next.y < 0:
+					reachable = top_gap >= ball_diameter
+				else:
+					reachable = side_gap >= ball_diameter
+				if reachable:
+					open[key] = true
+					changed = true
+					break
+	var unreachable: Array[Vector2i] = []
+	for key: Vector2i in open:
+		var brick_type := _cell_type(level, key)
+		if brick_type != null and brick_type.destructible and not open[key]:
+			unreachable.append(key)
+	check(unreachable.is_empty(), "every destructible brick can be reached (unreachable cells: %s)" % [unreachable])
+
+	main.queue_free()
+	await tree.process_frame
+
+
+func _cell_type(level: LevelData, cell: Vector2i) -> BrickType:
+	var line := level.rows[cell.y]
+	return level.get_brick_type(line[cell.x]) if cell.x < line.length() else null
 
 
 ## The playfield below the 64 px HUD bar.
