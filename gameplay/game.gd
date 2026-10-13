@@ -17,6 +17,9 @@ var session: GameSession
 
 var _ended_at_msec: int = 0
 var _restarting: bool = false
+## LevelValidator problems with [member level]; when any exist, no bricks are
+## spawned and the ball can't be launched.
+var _level_problems: PackedStringArray = []
 
 @onready var _bricks: Node2D = %Bricks
 @onready var _paddle: Paddle = %Paddle
@@ -40,7 +43,10 @@ func _ready() -> void:
 	_paddle.position = Vector2(Playfield.get_size().x * 0.5, LevelGrid.get_paddle_y())
 	_paddle.reset_physics_interpolation()
 	_ball.attach_to_paddle()
-	_hud.show_message("Re-Jardinians!", "Press Space or click to launch.")
+	if has_playable_level():
+		_hud.show_message("Re-Jardinians!", "Press Space or click to launch.")
+	else:
+		_hud.show_message("Level unavailable", "This level's data is invalid, so it can't be played.\nSee the error log for details.")
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -70,18 +76,20 @@ func _apply_layout() -> void:
 	_hud.offset = offset
 
 
-## Spawns bricks and returns how many are destructible.
+func has_playable_level() -> bool:
+	return _level_problems.is_empty()
+
+
+## Spawns bricks and returns how many are destructible. A level that fails
+## validation spawns nothing, so it can never be played half-built.
 func _build_level() -> int:
-	if level == null:
-		push_error("Game has no LevelData assigned.")
+	_level_problems = LevelValidator.validate(level, _ball.radius * 2.0, Playfield.get_size(), _paddle.size.y)
+	for problem: String in _level_problems:
+		push_error(problem)
+	if not has_playable_level():
 		return 0
-	for problem: String in level.validate():
-		push_error("%s: %s" % [level.resource_path, problem])
 
 	var columns := level.get_column_count()
-	if columns > LevelGrid.get_max_columns():
-		push_error("%s: %d columns need %d px but the arena is %d px wide; outer bricks would sit inside the walls."
-				% [level.resource_path, columns, LevelGrid.get_footprint_size(columns, 0).x, Playfield.get_size().x])
 	var destructible := 0
 	for row: int in level.rows.size():
 		var line := level.rows[row]
@@ -100,7 +108,7 @@ func _build_level() -> int:
 
 
 func _on_launch_pressed() -> void:
-	if get_tree().paused:
+	if get_tree().paused or not has_playable_level():
 		return
 	match session.state:
 		GameSession.State.READY:

@@ -116,9 +116,10 @@ func _check_rendered_pixels(bricks: Array[Brick]) -> void:
 	check(_colors_close(image.get_pixelv(empty), Color.BLACK, 0.03), "empty arena below the bricks is black, not brick-colored")
 
 
-## The level must fit the arena with ball-sized gaps around the grid, and every
-## destructible brick must be reachable: peeling bricks from the open side
-## (stones never break) has to expose all of them.
+## The level in the running game must pass validation with the live ball and
+## paddle (ball-sized gaps beside the grid, clearance above the paddle), and
+## every destructible brick must be reachable: peeling bricks from the open
+## sides (stones never break) has to expose all of them.
 func _test_level_fits_arena_and_is_reachable() -> void:
 	var main := MAIN_SCENE.instantiate()
 	tree.root.add_child(main)
@@ -131,54 +132,17 @@ func _test_level_fits_arena_and_is_reachable() -> void:
 	var columns := level.get_column_count()
 	var side_gap := LevelGrid.get_side_gap(columns)
 	var top_gap := LevelGrid.GRID_TOP - playfield.ceiling_y
-	var clearance := LevelGrid.get_paddle_clearance(level.rows.size(), Playfield.get_size(), paddle_height)
 
 	check_equal(columns, 11, "test level is 11 columns wide")
-	check(side_gap >= ball_diameter, "ball fits beside the grid (%.0f px gaps, ball %.0f px)" % [side_gap, ball_diameter])
+	check_equal(LevelValidator.validate(level, ball_diameter, Playfield.get_size(), paddle_height), PackedStringArray(),
+			"test level passes structural and grid-fit validation with the live ball and paddle")
+	check(game.has_playable_level(), "game accepted the test level")
 	check(top_gap >= ball_diameter, "ball fits between the ceiling and the top row (%.0f px)" % top_gap)
-	check(clearance >= LevelGrid.MIN_PADDLE_CLEARANCE, "at least %.0f px of open play space between bricks and paddle (%.0f px)"
-			% [LevelGrid.MIN_PADDLE_CLEARANCE, clearance])
-
-	# Out-of-grid neighbours are open space only where the ball can get there.
-	var open := {}
-	for row: int in level.rows.size():
-		for column: int in columns:
-			open[Vector2i(column, row)] = false
-	var changed := true
-	while changed:
-		changed = false
-		for key: Vector2i in open:
-			if open[key] or _cell_type(level, key) != null and not _cell_type(level, key).destructible:
-				continue
-			for step: Vector2i in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]:
-				var next := key + step
-				var reachable: bool
-				if open.has(next):
-					reachable = open[next]
-				elif next.y >= level.rows.size():
-					reachable = true
-				elif next.y < 0:
-					reachable = top_gap >= ball_diameter
-				else:
-					reachable = side_gap >= ball_diameter
-				if reachable:
-					open[key] = true
-					changed = true
-					break
-	var unreachable: Array[Vector2i] = []
-	for key: Vector2i in open:
-		var brick_type := _cell_type(level, key)
-		if brick_type != null and brick_type.destructible and not open[key]:
-			unreachable.append(key)
+	var unreachable := LevelReachability.find_unreachable(level, side_gap >= ball_diameter, top_gap >= ball_diameter)
 	check(unreachable.is_empty(), "every destructible brick can be reached (unreachable cells: %s)" % [unreachable])
 
 	main.queue_free()
 	await tree.process_frame
-
-
-func _cell_type(level: LevelData, cell: Vector2i) -> BrickType:
-	var line := level.rows[cell.y]
-	return level.get_brick_type(line[cell.x]) if cell.x < line.length() else null
 
 
 ## The playfield below the ceiling.

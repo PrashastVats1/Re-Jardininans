@@ -14,6 +14,7 @@ func _test_test_level_resource() -> void:
 	if level == null:
 		return
 	check_equal(level.validate(), PackedStringArray(), "test level has no validation problems")
+	check_equal(LevelValidator.validate(level), PackedStringArray(), "test level fits the arena")
 	check_equal(level.get_column_count(), 11, "test level is 11 columns wide")
 	check_equal(level.count_destructible(), 40, "test level has 40 destructible bricks")
 	check(level.get_brick_type(".") == null, "'.' is an empty cell")

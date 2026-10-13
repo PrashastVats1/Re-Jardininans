@@ -6,9 +6,10 @@ extends CharacterBody2D
 signal lost
 
 const MAX_COLLISIONS_PER_STEP: int = 4
+const DEFAULT_RADIUS: float = 10.0
 
 @export var paddle: Paddle
-@export var radius: float = 10.0
+@export var radius: float = DEFAULT_RADIUS
 @export var initial_speed: float = 420.0
 @export var max_speed: float = 900.0
 @export var speed_gain_per_brick_hit: float = 10.0
