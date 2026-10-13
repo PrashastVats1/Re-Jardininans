@@ -88,9 +88,10 @@ open the editor) so new `class_name` types are registered before testing.
 
 The game currently has a single playable level, **Test Garden**
 (`data/levels/test_level.tres`: 11 columns × 5 rows, 40 destructible bricks plus
-2 stones). It is the only entry in `data/level_list.tres`, the list the game
-loads its level from. The planned 64-level campaign (Level 1 being the
-tutorial) does not exist yet.
+2 stones). It is the only entry in `data/level_list.tres`. By default the
+shipped scene plays the first level in that list, but a level assigned
+directly to `Game.level` takes precedence over the list. The planned 64-level
+campaign (Level 1 being the tutorial) does not exist yet.
 
 `data/levels/fixture_islands.tres` (**Fixture Islands**, 9 columns × 7 rows)
 is a test fixture, not a campaign level: it is deliberately not in the level
