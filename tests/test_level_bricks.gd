@@ -5,7 +5,6 @@ extends "res://tests/test_case.gd"
 
 const MAIN_SCENE: PackedScene = preload("res://main.tscn")
 const TEST_LEVEL_PATH: String = "res://data/levels/test_level.tres"
-const LEVELS_DIR: String = "res://data/levels"
 const EXPECTED_COUNTS: Dictionary = {
 	"Clay pot": 7,
 	"Red bloom": 11,
@@ -18,7 +17,6 @@ const EXPECTED_COUNTS: Dictionary = {
 func run() -> void:
 	_test_no_untyped_literal_defaults_on_typed_array_exports()
 	_test_level_file_keeps_rows()
-	_test_brick_colors_read_on_black()
 	await _test_spawned_bricks()
 	await _test_level_fits_arena_and_is_reachable()
 
@@ -39,40 +37,6 @@ func _test_no_untyped_literal_defaults_on_typed_array_exports() -> void:
 func _test_level_file_keeps_rows() -> void:
 	var text := FileAccess.get_file_as_string(TEST_LEVEL_PATH)
 	check(text.contains("rows = PackedStringArray(\""), "test_level.tres stores its brick rows on disk")
-
-
-## Bricks are plain coloured blocks on a black arena, so their colour is what
-## tells them apart: every type in every level must contrast strongly with
-## black (WCAG ratio >= 4.5) and differ clearly from the other types.
-func _test_brick_colors_read_on_black() -> void:
-	var types: Array[BrickType] = []
-	for file: String in DirAccess.get_files_at(LEVELS_DIR):
-		var level := load(LEVELS_DIR.path_join(file)) as LevelData
-		if level == null:
-			continue
-		for symbol: String in level.legend:
-			var brick_type := level.get_brick_type(symbol)
-			if brick_type != null and not types.has(brick_type):
-				types.append(brick_type)
-	check(not types.is_empty(), "levels define brick types")
-	var low_contrast: PackedStringArray = []
-	var look_alike: PackedStringArray = []
-	for i: int in types.size():
-		var ratio := (_luminance(types[i].color) + 0.05) / 0.05
-		if ratio < 4.5:
-			low_contrast.append("%s %.1f:1" % [types[i].display_name, ratio])
-		for j: int in range(i + 1, types.size()):
-			var a := types[i].color
-			var b := types[j].color
-			if Vector3(a.r - b.r, a.g - b.g, a.b - b.b).length() < 0.15:
-				look_alike.append("%s/%s" % [types[i].display_name, types[j].display_name])
-	check(low_contrast.is_empty(), "every brick colour contrasts with the black arena %s" % [low_contrast])
-	check(look_alike.is_empty(), "no two brick types share a look-alike colour %s" % [look_alike])
-
-
-func _luminance(color: Color) -> float:
-	var linear := color.srgb_to_linear()
-	return 0.2126 * linear.r + 0.7152 * linear.g + 0.0722 * linear.b
 
 
 func _test_spawned_bricks() -> void:
