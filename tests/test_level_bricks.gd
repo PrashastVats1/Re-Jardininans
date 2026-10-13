@@ -62,7 +62,7 @@ func _test_spawned_bricks() -> void:
 		if brick.brick_type != null:
 			counts[brick.brick_type.display_name] = int(counts.get(brick.brick_type.display_name, 0)) + 1
 		var rect := Rect2(brick.global_position - Brick.SIZE * 0.5, Brick.SIZE)
-		all_inside = all_inside and _brick_area().encloses(rect)
+		all_inside = all_inside and _brick_area((game.get_node("Playfield") as Playfield).ceiling_y).encloses(rect)
 		all_visible = all_visible and brick.is_visible_in_tree() and brick.modulate.a > 0.99 \
 				and brick.scale.is_equal_approx(Vector2.ONE)
 		positions[brick.global_position.round()] = true
@@ -127,18 +127,17 @@ func _test_level_fits_arena_and_is_reachable() -> void:
 	var level := game.level
 	var playfield := game.get_node("Playfield") as Playfield
 	var ball_diameter := (game.get_node("Playfield/Ball") as Ball).radius * 2.0
-	var arena := Playfield.get_size()
-	var cell := Brick.SIZE + game.brick_spacing
+	var paddle_height := (game.get_node("Playfield/Paddle") as Paddle).size.y
 	var columns := level.get_column_count()
-	var side_gap := (arena.x - columns * cell.x) * 0.5
-	var top_gap := game.brick_area_top - playfield.ceiling_y
-	var grid_bottom := game.brick_area_top + level.rows.size() * cell.y
-	var paddle_top := arena.y - game.paddle_bottom_offset - (game.get_node("Playfield/Paddle") as Paddle).size.y * 0.5
+	var side_gap := LevelGrid.get_side_gap(columns)
+	var top_gap := LevelGrid.GRID_TOP - playfield.ceiling_y
+	var clearance := LevelGrid.get_paddle_clearance(level.rows.size(), Playfield.get_size(), paddle_height)
 
 	check_equal(columns, 11, "test level is 11 columns wide")
 	check(side_gap >= ball_diameter, "ball fits beside the grid (%.0f px gaps, ball %.0f px)" % [side_gap, ball_diameter])
 	check(top_gap >= ball_diameter, "ball fits between the ceiling and the top row (%.0f px)" % top_gap)
-	check(paddle_top - grid_bottom >= 200.0, "at least 200 px of open play space between bricks and paddle (%.0f px)" % [paddle_top - grid_bottom])
+	check(clearance >= LevelGrid.MIN_PADDLE_CLEARANCE, "at least %.0f px of open play space between bricks and paddle (%.0f px)"
+			% [LevelGrid.MIN_PADDLE_CLEARANCE, clearance])
 
 	# Out-of-grid neighbours are open space only where the ball can get there.
 	var open := {}
@@ -182,10 +181,10 @@ func _cell_type(level: LevelData, cell: Vector2i) -> BrickType:
 	return level.get_brick_type(line[cell.x]) if cell.x < line.length() else null
 
 
-## The playfield below the 64 px HUD bar.
-func _brick_area() -> Rect2:
+## The playfield below the ceiling.
+func _brick_area(ceiling_y: float) -> Rect2:
 	var size := Playfield.get_size()
-	return Rect2(0.0, 64.0, size.x, size.y - 64.0)
+	return Rect2(0.0, ceiling_y, size.x, size.y - ceiling_y)
 
 
 func _colors_close(a: Color, b: Color, tolerance: float) -> bool:

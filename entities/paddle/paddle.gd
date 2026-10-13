@@ -6,7 +6,9 @@ extends AnimatableBody2D
 ## moving to the last in-arena target. A movement key or the window losing focus
 ## cancels mouse control at once, so the paddle stays put.
 
-@export var size: Vector2 = Vector2(140.0, 22.0)
+const DEFAULT_SIZE: Vector2 = Vector2(140.0, 22.0)
+
+@export var size: Vector2 = DEFAULT_SIZE
 @export var keyboard_speed: float = 900.0
 ## Caps how fast the paddle chases the pointer so it never teleports through the ball.
 @export var mouse_follow_speed: float = 6000.0

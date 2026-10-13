@@ -11,10 +11,6 @@ const RESTART_DELAY_MSEC: int = 600
 
 @export var level: LevelData
 @export_range(1, 9) var starting_lives: int = 3
-@export var brick_area_top: float = 104.0
-## Distance from the playfield's bottom edge to the paddle's center.
-@export var paddle_bottom_offset: float = 60.0
-@export var brick_spacing: Vector2 = Vector2(4.0, 4.0)
 @export var pause_on_focus_loss: bool = true
 
 var session: GameSession
@@ -41,8 +37,7 @@ func _ready() -> void:
 	_hud.set_score(session.score)
 	_hud.set_lives(session.lives)
 	_hud.set_level(level.display_name if level != null else "")
-	var playfield_size := Playfield.get_size()
-	_paddle.position = Vector2(playfield_size.x * 0.5, playfield_size.y - paddle_bottom_offset)
+	_paddle.position = Vector2(Playfield.get_size().x * 0.5, LevelGrid.get_paddle_y())
 	_paddle.reset_physics_interpolation()
 	_ball.attach_to_paddle()
 	_hud.show_message("Re-Jardinians!", "Press Space or click to launch.")
@@ -83,13 +78,10 @@ func _build_level() -> int:
 	for problem: String in level.validate():
 		push_error("%s: %s" % [level.resource_path, problem])
 
-	var cell := Brick.SIZE + brick_spacing
 	var columns := level.get_column_count()
-	var arena_width := Playfield.get_size().x
-	if columns * cell.x > arena_width:
+	if columns > LevelGrid.get_max_columns():
 		push_error("%s: %d columns need %d px but the arena is %d px wide; outer bricks would sit inside the walls."
-				% [level.resource_path, columns, columns * cell.x, arena_width])
-	var first_center := Vector2((arena_width - columns * cell.x) * 0.5, brick_area_top) + cell * 0.5
+				% [level.resource_path, columns, LevelGrid.get_footprint_size(columns, 0).x, Playfield.get_size().x])
 	var destructible := 0
 	for row: int in level.rows.size():
 		var line := level.rows[row]
@@ -99,7 +91,7 @@ func _build_level() -> int:
 				continue
 			var brick := BRICK_SCENE.instantiate() as Brick
 			brick.setup(brick_type)
-			brick.position = first_center + Vector2(column * cell.x, row * cell.y)
+			brick.position = LevelGrid.get_cell_center(column, row, columns)
 			brick.destroyed.connect(_on_brick_destroyed)
 			_bricks.add_child(brick)
 			if brick_type.destructible:
