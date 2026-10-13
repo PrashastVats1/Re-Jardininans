@@ -197,6 +197,8 @@ func _start_game(level: LevelData) -> Game:
 	var main := MAIN_SCENE.instantiate()
 	var game := main.get_node("Game") as Game
 	game.level = level
+	if level == null:
+		game.level_list = null
 	game.pause_on_focus_loss = false
 	tree.root.add_child(main)
 	main.get_node("Game/Playfield/Paddle").set_physics_process(false)

@@ -1,7 +1,7 @@
 [gd_scene format=3]
 
 [ext_resource type="Script" path="res://gameplay/game.gd" id="1_game"]
-[ext_resource type="Resource" path="res://data/levels/test_level.tres" id="2_level"]
+[ext_resource type="Resource" path="res://data/level_list.tres" id="2_level_list"]
 [ext_resource type="Script" path="res://gameplay/arena_background.gd" id="3_background"]
 [ext_resource type="PackedScene" path="res://entities/paddle/paddle.tscn" id="4_paddle"]
 [ext_resource type="PackedScene" path="res://entities/ball/ball.tscn" id="5_ball"]
@@ -17,7 +17,7 @@
 [node name="Game" type="Node2D"]
 process_mode = 3
 script = ExtResource("1_game")
-level = ExtResource("2_level")
+level_list = ExtResource("2_level_list")
 
 [node name="Backdrop" type="CanvasLayer" parent="."]
 layer = -1

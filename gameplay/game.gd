@@ -9,7 +9,10 @@ const BRICK_SCENE: PackedScene = preload("res://entities/brick/brick.tscn")
 ## meant for the last ball doesn't instantly restart.
 const RESTART_DELAY_MSEC: int = 600
 
+## The level to play. Set it before the game enters the tree; when it is unset
+## the first level of [member level_list] is used.
 @export var level: LevelData
+@export var level_list: LevelList
 @export_range(1, 9) var starting_lives: int = 3
 @export var pause_on_focus_loss: bool = true
 
@@ -32,6 +35,8 @@ func _ready() -> void:
 	get_viewport().size_changed.connect(_apply_layout)
 	_apply_layout()
 
+	if level == null and level_list != null:
+		level = level_list.get_level(0)
 	session = GameSession.new(starting_lives, _build_level())
 	session.score_changed.connect(_hud.set_score)
 	session.lives_changed.connect(_hud.set_lives)
@@ -117,7 +122,7 @@ func _on_launch_pressed() -> void:
 				_hud.hide_message()
 		GameSession.State.WON, GameSession.State.GAME_OVER:
 			if Time.get_ticks_msec() - _ended_at_msec >= RESTART_DELAY_MSEC:
-				_restart()
+				restart()
 
 
 func _toggle_pause() -> void:
@@ -152,9 +157,23 @@ func _show_end_message(title: String, body: String) -> void:
 	_hud.show_message(title, body)
 
 
-func _restart() -> void:
+## Replaces the current scene with a fresh copy playing the same level with the
+## same settings. Reloading the scene file instead would bring back the scene's
+## default level. The copy validates the level again when it loads.
+func restart() -> void:
 	if _restarting:
 		return
+	var tree := get_tree()
+	var scene := tree.current_scene
+	if scene == null or not (scene == self or scene.is_ancestor_of(self)) or scene.scene_file_path.is_empty():
+		push_error("Game.restart() needs the game to be part of a current scene loaded from a file.")
+		return
 	_restarting = true
-	get_tree().paused = false
-	get_tree().reload_current_scene()
+	tree.paused = false
+	var fresh := (load(scene.scene_file_path) as PackedScene).instantiate()
+	var game := fresh.get_node(scene.get_path_to(self)) as Game
+	game.level = level
+	game.level_list = level_list
+	game.starting_lives = starting_lives
+	game.pause_on_focus_loss = pause_on_focus_loss
+	tree.change_scene_to_node(fresh)

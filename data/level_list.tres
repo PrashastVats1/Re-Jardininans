@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="LevelList" format=3]
+
+[ext_resource type="Script" path="res://gameplay/resources/level_list.gd" id="1_list"]
+[ext_resource type="Script" uid="uid://bdiuqpu7f0bwf" path="res://gameplay/resources/level_data.gd" id="2_level_data"]
+[ext_resource type="Resource" uid="uid://mkh0qqwok8sb" path="res://data/levels/test_level.tres" id="3_test_level"]
+
+[resource]
+script = ExtResource("1_list")
+levels = Array[ExtResource("2_level_data")]([ExtResource("3_test_level")])
