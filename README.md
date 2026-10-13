@@ -49,10 +49,13 @@ open the editor) so new `class_name` types are registered before testing.
 
 - Renderer: GL Compatibility
 - Logical resolution: 1280×720, landscape, fixed 16:9 playfield
-  (`canvas_items` stretch, `keep` aspect — letterboxed on other window shapes)
+  (`canvas_items` stretch, `keep` aspect — letterboxed on other window shapes).
+  The project's viewport width/height are the single source of truth for the
+  playfield size; code reads them through `Playfield.get_size()`.
 - 2D physics interpolation enabled
 - Input actions: `move_left`, `move_right`, `launch_ball`, `pause`
-  (mouse movement controls the paddle directly)
+  (moving the mouse inside the window steers the paddle; it stays put when the
+  pointer leaves the window)
 - 2D physics layers: `world`, `paddle`, `ball`, `bricks`, `killzone`
 
 ## Folder layout

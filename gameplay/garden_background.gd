@@ -2,7 +2,6 @@ extends Node2D
 ## Procedural garden backdrop: sky gradient, rolling hills, grass and the hedge
 ## behind the HUD bar.
 
-@export var playfield_size: Vector2 = Vector2(1280.0, 720.0)
 @export var hud_bar_height: float = 64.0
 @export var sky_top: Color = Color(0.53, 0.8, 0.98)
 @export var sky_bottom: Color = Color(0.86, 0.95, 0.9)
@@ -13,6 +12,7 @@ extends Node2D
 
 
 func _draw() -> void:
+	var playfield_size := Playfield.get_size()
 	var w := playfield_size.x
 	var h := playfield_size.y
 	draw_polygon(

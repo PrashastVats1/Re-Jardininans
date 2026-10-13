@@ -48,7 +48,7 @@ func _test_autoplay_reaches_victory() -> void:
 	while steps < MAX_STEPS_TO_WIN and game.session.state != GameSession.State.WON:
 		unexpectedly_paused = unexpectedly_paused or tree.paused
 		var aim := sin(steps * 0.013) * paddle.get_half_width() * 0.8
-		paddle.position.x = clampf(ball.position.x - aim, paddle.get_half_width(), 1280.0 - paddle.get_half_width())
+		paddle.position.x = clampf(ball.position.x - aim, paddle.get_half_width(), Playfield.get_size().x - paddle.get_half_width())
 		if game.session.state == GameSession.State.READY:
 			_press("launch_ball")
 		await tree.physics_frame
@@ -80,7 +80,8 @@ func _test_losing_all_lives_ends_game() -> void:
 		if game.session.state == GameSession.State.READY:
 			_press("launch_ball")
 		elif not ball.is_attached():
-			var far_side := paddle.get_half_width() if ball.position.x > 640.0 else 1280.0 - paddle.get_half_width()
+			var width := Playfield.get_size().x
+			var far_side := paddle.get_half_width() if ball.position.x > width * 0.5 else width - paddle.get_half_width()
 			paddle.position.x = far_side
 		await tree.physics_frame
 		steps += 1

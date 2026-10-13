@@ -6,12 +6,13 @@
 [ext_resource type="PackedScene" path="res://entities/paddle/paddle.tscn" id="4_paddle"]
 [ext_resource type="PackedScene" path="res://entities/ball/ball.tscn" id="5_ball"]
 [ext_resource type="PackedScene" path="res://ui/hud/hud.tscn" id="6_hud"]
+[ext_resource type="Script" path="res://gameplay/playfield.gd" id="7_playfield"]
 
-[sub_resource type="RectangleShape2D" id="RectangleShape2D_side_wall"]
-size = Vector2(200, 1200)
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_left_wall"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_right_wall"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_top_wall"]
-size = Vector2(1680, 200)
 
 [node name="Game" type="Node2D"]
 process_mode = 3
@@ -23,31 +24,28 @@ script = ExtResource("3_background")
 
 [node name="Playfield" type="Node2D" parent="."]
 process_mode = 1
+script = ExtResource("7_playfield")
 
 [node name="Walls" type="StaticBody2D" parent="Playfield"]
 collision_mask = 0
 
 [node name="Left" type="CollisionShape2D" parent="Playfield/Walls"]
-position = Vector2(-100, 360)
-shape = SubResource("RectangleShape2D_side_wall")
+shape = SubResource("RectangleShape2D_left_wall")
 
 [node name="Right" type="CollisionShape2D" parent="Playfield/Walls"]
-position = Vector2(1380, 360)
-shape = SubResource("RectangleShape2D_side_wall")
+shape = SubResource("RectangleShape2D_right_wall")
 
 [node name="Top" type="CollisionShape2D" parent="Playfield/Walls"]
-position = Vector2(640, -36)
 shape = SubResource("RectangleShape2D_top_wall")
 
 [node name="Bricks" type="Node2D" parent="Playfield"]
 unique_name_in_owner = true
 
 [node name="Paddle" parent="Playfield" instance=ExtResource("4_paddle")]
-position = Vector2(640, 660)
+unique_name_in_owner = true
 
 [node name="Ball" parent="Playfield" node_paths=PackedStringArray("paddle") instance=ExtResource("5_ball")]
 unique_name_in_owner = true
-position = Vector2(640, 637)
 paddle = NodePath("../Paddle")
 
 [node name="Hud" parent="." instance=ExtResource("6_hud")]

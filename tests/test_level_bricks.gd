@@ -5,7 +5,6 @@ extends "res://tests/test_case.gd"
 
 const MAIN_SCENE: PackedScene = preload("res://main.tscn")
 const TEST_LEVEL_PATH: String = "res://data/levels/test_level.tres"
-const BRICK_AREA: Rect2 = Rect2(0.0, 64.0, 1280.0, 656.0)
 const EXPECTED_COUNTS: Dictionary = {
 	"Clay pot": 10,
 	"Red bloom": 14,
@@ -62,7 +61,7 @@ func _test_spawned_bricks() -> void:
 		if brick.brick_type != null:
 			counts[brick.brick_type.display_name] = int(counts.get(brick.brick_type.display_name, 0)) + 1
 		var rect := Rect2(brick.global_position - Brick.SIZE * 0.5, Brick.SIZE)
-		all_inside = all_inside and BRICK_AREA.encloses(rect)
+		all_inside = all_inside and _brick_area().encloses(rect)
 		all_visible = all_visible and brick.is_visible_in_tree() and brick.modulate.a > 0.99 \
 				and brick.scale.is_equal_approx(Vector2.ONE)
 		positions[brick.global_position.round()] = true
@@ -111,9 +110,15 @@ func _check_rendered_pixels(bricks: Array[Brick]) -> void:
 	check(sampled == bricks.size(), "every brick center is on screen (%d/%d)" % [sampled, bricks.size()])
 	check(matched == sampled and sampled > 0, "rendered pixels match brick colors at %d/%d bricks" % [matched, sampled])
 
-	var sky := Vector2i((to_screen * Vector2(640.0, 320.0)).round())
+	var sky := Vector2i((to_screen * Vector2(Playfield.get_size().x * 0.5, 320.0)).round())
 	var sky_color := image.get_pixelv(sky)
 	check(not _colors_close(sky_color, bricks[0].brick_type.color, 0.08), "empty sky below the bricks is not brick-colored")
+
+
+## The playfield below the 64 px HUD bar.
+func _brick_area() -> Rect2:
+	var size := Playfield.get_size()
+	return Rect2(0.0, 64.0, size.x, size.y - 64.0)
 
 
 func _colors_close(a: Color, b: Color, tolerance: float) -> bool:
