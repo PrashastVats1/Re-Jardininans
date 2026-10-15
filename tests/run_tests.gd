@@ -9,6 +9,7 @@ const TestCase := preload("res://tests/test_case.gd")
 const TEST_SCRIPTS: Array[String] = [
 	"res://tests/test_bounce_math.gd",
 	"res://tests/test_game_session.gd",
+	"res://tests/test_campaign_rules.gd",
 	"res://tests/test_level_data.gd",
 	"res://tests/test_brick_library.gd",
 	"res://tests/test_level_grid.gd",
@@ -20,6 +21,9 @@ const TEST_SCRIPTS: Array[String] = [
 	"res://tests/test_game_scene.gd",
 	"res://tests/test_gameplay_autoplay.gd",
 	"res://tests/test_restart.gd",
+	"res://tests/test_campaign_score.gd",
+	"res://tests/test_campaign_selection.gd",
+	"res://tests/test_campaign_progression.gd",
 	"res://tests/test_paddle_input.gd",
 	"res://tests/test_playfield_dimensions.gd",
 	"res://tests/test_game_layout.gd",

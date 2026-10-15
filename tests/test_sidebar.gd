@@ -70,6 +70,10 @@ func _test_content_fits_the_column() -> void:
 		if not column.encloses(label.get_global_rect()) or label.get_minimum_size().x > column.size.x:
 			outside.append(String(label.name))
 	check(outside.is_empty(), "long sidebar text stays inside the column %s" % [outside])
+	_sidebar.set_level("A campaign level name far too long to fit in the sidebar column", 64)
+	var level_label := _sidebar.get_node("%LevelValue") as Label
+	check(column.encloses(level_label.get_global_rect()) and level_label.get_minimum_size().x <= column.size.x,
+			"a long numbered campaign level stays inside the column")
 	var rows := _sidebar.get_node("Margin/Rows") as Control
 	check(rows.get_combined_minimum_size().y <= column.size.y - 48.0, "sidebar rows fit the column height (%.0f px)" % rows.get_combined_minimum_size().y)
 	_sidebar.set_level("")

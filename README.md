@@ -90,13 +90,74 @@ The game currently has a single playable level, **Test Garden**
 (`data/levels/test_level.tres`: 11 columns × 5 rows, 40 destructible bricks plus
 2 stones). It is the only entry in `data/level_list.tres`. By default the
 shipped scene plays the first level in that list, but a level assigned
-directly to `Game.level` takes precedence over the list. The planned 64-level
-campaign (Level 1 being the tutorial) does not exist yet.
+directly to `Game.level` takes precedence over the list. `data/level_list.tres`
+is a development list, not the campaign: Test Garden is not campaign Level 1.
 
 `data/levels/fixture_islands.tres` (**Fixture Islands**, 9 columns × 7 rows)
 is a test fixture, not a campaign level: it is deliberately not in the level
 list, so the game never loads it. It exists so the level tests run against
 more than one shape.
+
+### Campaign rules
+
+The campaign's levels don't exist yet. Its fixed rules are defined in `CampaignRules`
+(`gameplay/campaign_rules.gd`), by level number:
+
+- Exactly 64 levels, numbered 1 to 64. Level 1 is the only tutorial.
+- Starting lives: 5 for levels 1–10, 4 for levels 11–20, 3 for levels 21–64.
+- Any other number is not a campaign level: it gets 0 starting lives and is
+  neither the tutorial nor the last level, so check `is_valid_level()` first.
+
+### Choosing a level
+
+`Game` plays either a development level or a campaign level:
+
+- **Development level** (`Game.level_number` = 0, the default): the level
+  assigned to `Game.level`, else the first entry of `Game.level_list`. It starts
+  with `Game.starting_lives` (3 by default), and the sidebar shows its name.
+- **Campaign level** (`Game.level_number` = 1 to 64): entry `level_number - 1`
+  of `Game.campaign`, a `LevelList` in campaign order (Level 1 is entry 0). It
+  starts with the `CampaignRules` lives for its number, the sidebar shows
+  "number · name", and the start message is titled "Level N" ("Level 1:
+  Tutorial" for Level 1). Leave `Game.level` unassigned.
+
+No campaign list exists yet, so the shipped scene plays Test Garden as a
+development level; the tests use in-memory campaigns. A campaign request that
+can't be met is refused like an invalid level: an invalid number, no campaign
+assigned, a missing entry, or `Game.level` also being assigned. The game logs
+the problem, shows "Level unavailable" and won't launch the ball. Restarting
+replays the same level, campaign or not, with its own starting lives.
+
+### Campaign progression
+
+After the end message, pressing Space or clicking (once the 600 ms end delay has
+passed) does one of the following:
+
+- **Campaign level won, Level 1–63:** the message offers the next level, and
+  confirming loads Level N + 1 (`Game.advance()`). It starts with a level score
+  of 0 and its own starting lives, and enters with the finished level's campaign
+  score.
+- **Level 64 won:** the message is "Campaign complete" with the final campaign
+  score. Confirming replays Level 64 with the score it was entered with; there
+  is no Level 65 and no loop back to Level 1.
+- **Game over:** replays the same level with the same entry total. Losing
+  never advances.
+- **Development level won or lost:** replays the same level, as before.
+
+If the next campaign entry is missing or invalid, that level loads in the
+"Level unavailable" state. It is never skipped.
+
+### Score
+
+Each attempt at a level (`GameSession`) keeps two scores:
+
+- **Level score** (`score`, shown in the sidebar): starts at 0 on every attempt.
+- **Campaign score** (`get_campaign_score()`): the campaign total on entering
+  the level (`Game.campaign_score_at_entry`, 0 by default) plus the level score.
+
+Pausing changes neither. Restarting a level starts a new attempt with the same
+entry total, so the level score goes back to 0 and the campaign score rolls
+back to its value on entering the level.
 
 ### Level format
 

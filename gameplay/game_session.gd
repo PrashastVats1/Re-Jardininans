@@ -2,6 +2,11 @@ class_name GameSession
 extends RefCounted
 ## Rules for one level attempt: score, lives and the win/lose state.
 ## Every transition is guarded, so late events after the game ends are ignored.
+##
+## [member score] is the level score: it starts at zero for every attempt. The
+## campaign score is the campaign total on entering this level plus the level
+## score, so starting a new attempt with the same entry total (a restart) rolls
+## the campaign score back to that total.
 
 signal score_changed(score: int)
 signal lives_changed(lives: int)
@@ -13,11 +18,18 @@ var score: int = 0
 var lives: int
 var bricks_remaining: int
 var state: State = State.READY
+## Campaign score when this attempt began; never changes during the attempt.
+var campaign_score_at_entry: int
 
 
-func _init(starting_lives: int = 3, destructible_bricks: int = 0) -> void:
+func _init(starting_lives: int = 3, destructible_bricks: int = 0, campaign_score_on_entry: int = 0) -> void:
 	lives = maxi(starting_lives, 1)
 	bricks_remaining = maxi(destructible_bricks, 0)
+	campaign_score_at_entry = maxi(campaign_score_on_entry, 0)
+
+
+func get_campaign_score() -> int:
+	return campaign_score_at_entry + score
 
 
 func is_finished() -> bool:

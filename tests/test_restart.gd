@@ -78,8 +78,10 @@ func _restart_with(restart_event: InputEvent, game: Game, label: String) -> void
 	_log.take()
 	OS.delay_msec(Game.RESTART_DELAY_MSEC + 50)
 	_send(restart_event)
+	var old_main_id := old_main.get_instance_id()
 	for i: int in 5:
 		await tree.process_frame
+		_freeze_new_paddle(old_main_id)
 	check_equal(_log.take(), PackedStringArray(), "[%s] restart input produces no engine errors" % label)
 	check(not is_instance_valid(game), "[%s] old game was freed" % label)
 
@@ -105,6 +107,16 @@ func _restart_with(restart_event: InputEvent, game: Game, label: String) -> void
 			and (hud.get_node("%MessageTitle") as Label).text == "Re-Jardinians!"
 			and (hud.get_node("%MessageBody") as Label).text == "Press Space or click to launch.",
 			"[%s] restarted game shows the start message" % label)
+
+
+## As soon as the restarted scene is current, stop its paddle so the real
+## pointer can't move it in a windowed run before its reset position is checked.
+func _freeze_new_paddle(old_main_id: int) -> void:
+	var scene := tree.current_scene
+	if scene != null and scene.get_instance_id() != old_main_id:
+		var paddle := scene.get_node_or_null("Game/Playfield/Paddle")
+		if paddle != null:
+			paddle.set_physics_process(false)
 
 
 func _load_main_as_current_scene() -> Game:

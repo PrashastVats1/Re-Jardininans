@@ -35,8 +35,12 @@ func set_lives(lives: int) -> void:
 	_sidebar.set_lives(lives)
 
 
-func set_level(level_name: String) -> void:
-	_sidebar.set_level(level_name)
+func clear_lives() -> void:
+	_sidebar.clear_lives()
+
+
+func set_level(level_name: String, level_number: int = 0) -> void:
+	_sidebar.set_level(level_name, level_number)
 
 
 func show_message(title: String, body: String) -> void:
