@@ -28,5 +28,15 @@ func set_lives(lives: int) -> void:
 	_lives_value.text = str(lives)
 
 
-func set_level(level_name: String) -> void:
-	_level_value.text = level_name if not level_name.is_empty() else PLACEHOLDER
+## For a level that can't be played: no life count is meaningful.
+func clear_lives() -> void:
+	_lives_value.text = PLACEHOLDER
+
+
+## A campaign level (level_number above 0) is shown as "12 · Name"; any other
+## level by its name alone.
+func set_level(level_name: String, level_number: int = 0) -> void:
+	if level_number > 0:
+		_level_value.text = "%d · %s" % [level_number, level_name] if not level_name.is_empty() else str(level_number)
+	else:
+		_level_value.text = level_name if not level_name.is_empty() else PLACEHOLDER
